@@ -1,0 +1,25 @@
+{
+  "name": "chattk",
+  "version": "0.1.0",
+  "description": "",
+  "main": "dist/",
+  "type": "module",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/*"
+  ],
+  "scripts": {
+    "test": "tsc -p tsconfig.test.json && node --test --require ts-node/register ./testdist/test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ws": "^8.13.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.40.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.4"
+  }
+}
