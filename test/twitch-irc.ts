@@ -9,6 +9,7 @@ import {
   PrivMsg,
   RoomState,
   UserNoticeRaid,
+  UserState,
   Whisper,
   ChatClient,
 } from "../src/twitch/irc.js";
@@ -525,11 +526,11 @@ describe("Testing Message Parser", () => {
   };
 
   test("CLEARCHAT", () => {
-    const msg: ClearChat = ChatClient.parseMessage(
+    const msg = ChatClient.parseMessage(
       "@room-id=12345678;target-user-id=87654321;tmi-sent-ts=1642715756806 :tmi.twitch.tv CLEARCHAT #dallas :ronni",
       //@ts-expect-error
       meta
-    );
+    ) as ClearChat;
 
     assert.equal(msg.command, "CLEARCHAT");
     assert.equal(msg.tags.roomId, "12345678");
@@ -545,7 +546,7 @@ describe("Testing Message Parser", () => {
       "@login=foo;room-id=;target-msg-id=94e6c7ff-bf98-4faa-af5d-7ad633a158a9;tmi-sent-ts=1642720582342 :tmi.twitch.tv CLEARMSG #bar :what a great day",
       //@ts-expect-error
       meta
-    );
+    ) as ClearMessage;
 
     assert.equal(msg.command, "CLEARMSG");
     assert.equal(msg.tags.login, "foo");
@@ -558,11 +559,11 @@ describe("Testing Message Parser", () => {
   });
 
   test("GLOBALUSERSTATE", () => {
-    const msg: GlobalUserState = ChatClient.parseMessage(
+    const msg = ChatClient.parseMessage(
       "@badge-info=subscriber/8;badges=subscriber/6;color=#0D4200;display-name=dallas;emote-sets=0,33,50,237,793,2126,3517,4578,5569,9400,10337,12239;turbo=0;user-id=12345678;user-type=admin :tmi.twitch.tv GLOBALUSERSTATE",
       //@ts-expect-error
       meta
-    );
+    ) as GlobalUserState;
 
     assert.equal(msg.command, "GLOBALUSERSTATE");
     assert.deepEqual(msg.tags.badgeInfo, { subLength: 8 });
@@ -582,11 +583,11 @@ describe("Testing Message Parser", () => {
   });
 
   test("NOTICE", () => {
-    const msg: Notice = ChatClient.parseMessage(
+    const msg = ChatClient.parseMessage(
       "@msg-id=whisper_restricted;target-user-id=12345678 :tmi.twitch.tv NOTICE #bar :Your settings prevent you from sending this whisper.",
       //@ts-expect-error
       meta
-    );
+    ) as Notice;
 
     assert.equal(msg.command, "NOTICE");
     assert.equal(msg.tags.msgId, "whisper_restricted");
@@ -600,11 +601,11 @@ describe("Testing Message Parser", () => {
   });
 
   test("PRIVMSG Emotes", () => {
-    const msg: PrivMsg = ChatClient.parseMessage(
+    const msg = ChatClient.parseMessage(
       "@reply-parent-msg-id=b34ccfc7-4977-403a-8a94-33c6bac34fb8;badge-info=;badges=turbo/1;color=#0D4200;display-name=ronni;emotes=25:0-4,12-16/1902:6-10;first-msg=0;id=b34ccfc7-4977-403a-8a94-33c6bac34fb8;mod=0;room-id=1337;subscriber=0;tmi-sent-ts=1507246572675;turbo=1;user-id=1337;user-type=global_mod :ronni!ronni@ronni.tmi.twitch.tv PRIVMSG #ronni :Kappa Keepo Kappa",
       //@ts-expect-error
       meta
-    );
+    ) as PrivMsg;
 
     assert.equal(msg.command, "PRIVMSG");
     assert.equal(msg.tags.badgeInfo, undefined);
@@ -670,11 +671,11 @@ describe("Testing Message Parser", () => {
   });
 
   test("ROOMSTATE", () => {
-    const msg: RoomState = ChatClient.parseMessage(
+    const msg = ChatClient.parseMessage(
       "@emote-only=0;followers-only=0;r9k=0;slow=0;subs-only=0 :tmi.twitch.tv ROOMSTATE #dallas",
       //@ts-expect-error
       meta
-    );
+    ) as RoomState;
 
     assert.equal(msg.command, "ROOMSTATE");
     assert.equal(msg.tags.emoteOnly, false);
@@ -686,11 +687,11 @@ describe("Testing Message Parser", () => {
   });
 
   test("USERNOTICE", () => {
-    const msg: UserNoticeRaid = ChatClient.parseMessage(
+    const msg = ChatClient.parseMessage(
       "@badge-info=;badges=turbo/1;color=#9ACD32;display-name=TestChannel;emotes=;id=3d830f12-795c-447d-af3c-ea05e40fbddb;login=testchannel;mod=0;msg-id=raid;msg-param-displayName=TestChannel;msg-param-login=testchannel;msg-param-viewerCount=15;room-id=33332222;subscriber=0;system-msg=15sraiderssfromsTestChannelshavesjoined\n!;tmi-sent-ts=1507246572675;turbo=1;user-id=123456;user-type= :tmi.twitch.tv USERNOTICE #othertestchannel",
       //@ts-expect-error
       meta
-    );
+    ) as UserNoticeRaid;
 
     assert.equal(msg.command, "USERNOTICE");
     assert.equal(msg.id, "raid");
@@ -704,21 +705,21 @@ describe("Testing Message Parser", () => {
   });
 
   test("USERSTATE", () => {
-    const msg: UserNoticeRaid = ChatClient.parseMessage(
+    const msg = ChatClient.parseMessage(
       "@badge-info=;badges=staff/1;color=#0D4200;display-name=ronni;emote-sets=0,33,50,237,793,2126,3517,4578,5569,9400,10337,12239;mod=1;subscriber=1;turbo=1;user-type=staff :tmi.twitch.tv USERSTATE #dallas",
       //@ts-expect-error
       meta
-    );
+    ) as UserState;
 
     assert.equal(msg.command, "USERSTATE");
   });
 
   test("WHISPER", () => {
-    const msg: Whisper = ChatClient.parseMessage(
+    const msg = ChatClient.parseMessage(
       "@badges=staff/1;color=#8A2BE2;display-name=PetsgomOO;emotes=;message-id=306;thread-id=12345678_87654321;turbo=0;user-id=87654321;user-type=staff :petsgomoo!petsgomoo@petsgomoo.tmi.twitch.tv WHISPER foo :hello",
       //@ts-expect-error
       meta
-    );
+    ) as Whisper;
 
     assert.equal(msg.command, "WHISPER");
     assert.equal(msg.tags.messageId, "306");
