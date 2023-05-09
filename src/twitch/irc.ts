@@ -366,8 +366,6 @@ export class ChatClient {
   ws!: WebSocket;
   clientNick!: string;
   clientPass!: string;
-  helixClientId!: string;
-  helixToken!: string;
   connected: boolean = false;
   richMsgConfig!: {
     enable: boolean;
@@ -385,12 +383,6 @@ export class ChatClient {
   ) {
     this.clientNick = nick ?? `justinfan${Math.floor(Math.random() * 1e4)}`;
     this.clientPass = pass ?? "SCHMOOPIIE";
-
-    const clientId = "16w0yt7y78o8ojz6sdt120uz97uvse";
-    const token = "biqgjw11d6s4293mfabctugqq1q1ig";
-
-    this.helixClientId = clientId;
-    this.helixToken = token;
 
     this.ws = new WebSocket("wss://irc-ws.chat.twitch.tv:443");
     this.ws.send(`PASS ${this.clientPass}`);
