@@ -9,7 +9,7 @@
     "dist/*"
   ],
   "scripts": {
-    "test": "tsc -p tsconfig.test.json && node --test --require ts-node/register ./testdist/test",
+    "test": "tsc -p tsconfig.test.json && node --test ./testdist/test",
     "prepare": "husky install"
   },
   "lint-staged": {
