@@ -54,20 +54,55 @@ interface Sendable {
   makeCommand(): string;
 }
 
-type TwitchTagType = {
-  ClearChat: {
+type UserNoticeBaseTags = {
+  badgeInfo: BadgeInfo;
+  badges: Badges;
+  color: string;
+  displayName: string;
+  emotes: Array<Emote>;
+  id: string;
+  login: string;
+  mod: boolean;
+  msgId: USERNOTICETYPE;
+  roomId: string;
+  subscriber: boolean;
+  systemMsg: string;
+  tmiSentTs: Date;
+  turbo: boolean;
+  userId: string;
+  userType: USERTYPE;
+};
+
+export interface ClearChat {
+  command: "CLEARCHAT";
+  source: MessageSource;
+  tags: {
     banDuration?: number;
     roomId: string;
     targetUserId?: string;
     tmiSentTs: Date;
   };
-  ClearMessage: {
+  channel: string;
+  user?: string;
+}
+
+export interface ClearMessage {
+  command: "CLEARMSG";
+  source: MessageSource;
+  tags: {
     login: string;
     roomId?: string;
     targetMsgId: string;
     tmiSentTs: Date;
   };
-  GlobalUserState: {
+  channel: string;
+  params: string;
+}
+
+export interface GlobalUserState {
+  command: "GLOBALUSERSTATE";
+  source: MessageSource;
+  tags: {
     badgeInfo: BadgeInfo;
     badges: Badges;
     color: string;
@@ -77,11 +112,23 @@ type TwitchTagType = {
     userId: string;
     userType: USERTYPE;
   };
-  Notice: {
+}
+
+export interface Notice {
+  command: "NOTICE";
+  source: MessageSource;
+  tags: {
     msgId: string;
     targetUserId?: string;
   };
-  PrivMsg: {
+  channel: string;
+  params: string;
+}
+
+export interface PrivMsg {
+  command: "PRIVMSG";
+  source: MessageSource;
+  tags: {
     badgeInfo: BadgeInfo;
     badges: Array<Badge>;
     bits?: number;
@@ -104,129 +151,6 @@ type TwitchTagType = {
     userType: USERTYPE;
     vip?: boolean;
   };
-  RoomState: {
-    emoteOnly: boolean;
-    followersonly: number;
-    r9k: boolean;
-    roomId: string;
-    slow: boolean;
-    subsOnly: boolean;
-  };
-  UserNoticeBase: {
-    badgeInfo: BadgeInfo;
-    badges: Badges;
-    color: string;
-    displayName: string;
-    emotes: Array<Emote>;
-    id: string;
-    login: string;
-    mod: boolean;
-    msgId: USERNOTICETYPE;
-    roomId: string;
-    subscriber: boolean;
-    systemMsg: string;
-    tmiSentTs: Date;
-    turbo: boolean;
-    userId: string;
-    userType: USERTYPE;
-  };
-  UserNoticeSub: {
-    msgParamCumulativeMonths: number;
-    msgParamShouldShareStreak: boolean;
-    msgParamStreakMonths: number;
-    msgParamSubPlan: SUBPLAN;
-    msgParamSubPlanName: string;
-  } & TwitchTagType["UserNoticeBase"];
-  UserNoticeReSub: TwitchTagType["UserNoticeSub"];
-  UserNoticeSubGift: {
-    msgParamMonths: number;
-    msgParamRecipientDisplayName: string;
-    msgParamRecipientId: string;
-    msgParamRecipientUserName: string;
-    msgParamSubPlan: SUBPLAN;
-    msgParamSubPlanName: string;
-    msgParamGiftMonths: number;
-  } & TwitchTagType["UserNoticeBase"];
-  UserNoticeGiftPaidUpgrade: {
-    msgParamPromoGiftTotal: number;
-    msgParamPromoName: string;
-    msgParamSenderLogin: string;
-    msgParamSenderName: string;
-  } & TwitchTagType["UserNoticeBase"];
-  UserNoticeAnonGiftPaidUpgrade: {
-    msgParamPromoGiftTotal: number;
-    msgParamPromoName: string;
-  } & TwitchTagType["UserNoticeBase"];
-  UserNoticeRaid: {
-    msgParamDisplayName: string;
-    msgParamLogin: string;
-    msgParamViewerCount: number;
-  } & TwitchTagType["UserNoticeBase"];
-  UserNoticeRitual: {
-    msgParamRitualName: string;
-  } & TwitchTagType["UserNoticeBase"];
-  UserNoticeBitsBadgeTier: {
-    msgParamThreshold: number;
-  } & TwitchTagType["UserNoticeBase"];
-  UserState: {
-    badgeInfo: BadgeInfo;
-    badges: Badges;
-    color: string;
-    displayName: string;
-    emoteSets: string;
-    id: string;
-    mod: boolean;
-    subscriber: boolean;
-    turbo: boolean;
-    userType: USERTYPE;
-  };
-  Whisper: {
-    badges: Badges;
-    color: string;
-    displayName: string;
-    emotes: Array<Emote>;
-    messageId: string;
-    threadId: string;
-    turbo: boolean;
-    userId: string;
-    userType: USERTYPE;
-  };
-};
-
-export interface ClearChat {
-  command: "CLEARCHAT";
-  source: MessageSource;
-  tags: TwitchTagType["ClearChat"];
-  channel: string;
-  user?: string;
-}
-
-export interface ClearMessage {
-  command: "CLEARMSG";
-  source: MessageSource;
-  tags: TwitchTagType["ClearMessage"];
-  channel: string;
-  params: string;
-}
-
-export interface GlobalUserState {
-  command: "GLOBALUSERSTATE";
-  source: MessageSource;
-  tags: TwitchTagType["GlobalUserState"];
-}
-
-export interface Notice {
-  command: "NOTICE";
-  source: MessageSource;
-  tags: TwitchTagType["Notice"];
-  channel: string;
-  params: string;
-}
-
-export interface PrivMsg {
-  command: "PRIVMSG";
-  source: MessageSource;
-  tags: TwitchTagType["PrivMsg"];
   channel: string;
   params: string;
 }
@@ -234,7 +158,14 @@ export interface PrivMsg {
 export interface RoomState {
   command: "ROOMSTATE";
   source: MessageSource;
-  tags: TwitchTagType["RoomState"];
+  tags: {
+    emoteOnly: boolean;
+    followersonly: number;
+    r9k: boolean;
+    roomId: string;
+    slow: boolean;
+    subsOnly: boolean;
+  };
   channel: string;
 }
 
@@ -247,55 +178,106 @@ interface UserNoticeBase {
 
 export interface UserNoticeSub extends UserNoticeBase {
   id: "sub";
-  tags: TwitchTagType["UserNoticeSub"];
+  tags: {
+    msgParamCumulativeMonths: number;
+    msgParamShouldShareStreak: boolean;
+    msgParamStreakMonths: number;
+    msgParamSubPlan: SUBPLAN;
+    msgParamSubPlanName: string;
+  } & UserNoticeBaseTags;
 }
 
 export interface UserNoticeReSub extends UserNoticeBase {
   id: "resub";
-  tags: TwitchTagType["UserNoticeSub"];
+  tags: UserNoticeSub["tags"];
 }
 
 export interface UserNoticeSubGift extends UserNoticeBase {
   id: "subgift";
-  tags: TwitchTagType["UserNoticeSubGift"];
+  tags: {
+    msgParamMonths: number;
+    msgParamRecipientDisplayName: string;
+    msgParamRecipientId: string;
+    msgParamRecipientUserName: string;
+    msgParamSubPlan: SUBPLAN;
+    msgParamSubPlanName: string;
+    msgParamGiftMonths: number;
+  } & UserNoticeBaseTags;
 }
 
 export interface UserNoticeGiftPaidUpgrade extends UserNoticeBase {
   id: "giftpaidupgrade";
-  tags: TwitchTagType["UserNoticeGiftPaidUpgrade"];
+  tags: {
+    msgParamPromoGiftTotal: number;
+    msgParamPromoName: string;
+    msgParamSenderLogin: string;
+    msgParamSenderName: string;
+  } & UserNoticeBaseTags;
 }
 
 export interface UserNoticeAnonGiftPaidUpgrade extends UserNoticeBase {
   id: "anongiftpaidupgrade";
-  tags: TwitchTagType["UserNoticeAnonGiftPaidUpgrade"];
+  tags: {
+    msgParamPromoGiftTotal: number;
+    msgParamPromoName: string;
+  } & UserNoticeBaseTags;
 }
 
 export interface UserNoticeRaid extends UserNoticeBase {
   id: "raid";
-  tags: TwitchTagType["UserNoticeRaid"];
+  tags: {
+    msgParamDisplayName: string;
+    msgParamLogin: string;
+    msgParamViewerCount: number;
+  } & UserNoticeBaseTags;
 }
 
 export interface UserNoticeRitual extends UserNoticeBase {
   id: "ritual";
-  tags: TwitchTagType["UserNoticeRitual"];
+  tags: {
+    msgParamRitualName: string;
+  } & UserNoticeBaseTags;
 }
 
 export interface UserNoticeBitsBadgeTier extends UserNoticeBase {
   id: "bitsbadgetier";
-  tags: TwitchTagType["UserNoticeBitsBadgeTier"];
+  tags: {
+    msgParamThreshold: number;
+  } & UserNoticeBaseTags;
 }
 
 export interface UserState {
   command: "USERSTATE";
   source: MessageSource;
-  tags: TwitchTagType["UserState"];
+  tags: {
+    badgeInfo: BadgeInfo;
+    badges: Badges;
+    color: string;
+    displayName: string;
+    emoteSets: string;
+    id: string;
+    mod: boolean;
+    subscriber: boolean;
+    turbo: boolean;
+    userType: USERTYPE;
+  };
   channel: string;
 }
 
 export interface Whisper {
   command: "WHISPER";
   source: MessageSource;
-  tags: TwitchTagType["Whisper"];
+  tags: {
+    badges: Badges;
+    color: string;
+    displayName: string;
+    emotes: Array<Emote>;
+    messageId: string;
+    threadId: string;
+    turbo: boolean;
+    userId: string;
+    userType: USERTYPE;
+  };
   fromUser: string;
   message: string;
 }
@@ -340,7 +322,7 @@ export interface UnknownCommand {
   command: "UNKNOWN";
 }
 
-export type CommandType =
+type CommandUnion =
   | ClearChat
   | ClearMessage
   | Notice
@@ -362,11 +344,48 @@ export type CommandType =
   | Ping
   | UnknownCommand;
 
+type a = Extract<CommandUnion, { tags: any }>;
+
+export type listenerOptions = {
+  [command in CommandUnion["command"]]?: {
+    // If selected command does not contain 'source', 'source?' is of type never
+    // -> If contains source, maps the source type to 'source?'
+    // Same goes for other attributes
+    source?: Extract<CommandUnion, { source: any }> extends undefined
+      ? never
+      : Partial<Extract<CommandUnion, { source: any }>["source"]>;
+    tags?: Extract<CommandUnion, { tags: any }> extends undefined
+      ? never
+      : Partial<Extract<CommandUnion, { tags: any }>["tags"]>;
+    channel?: Extract<CommandUnion, { channel: any }> extends undefined
+      ? never
+      : string;
+    params?: Extract<CommandUnion, { params: any }> extends undefined
+      ? never
+      : string;
+    user?: Extract<CommandUnion, { user: any }> extends undefined
+      ? never
+      : string;
+  };
+};
+
+class MessageEvent extends Event {
+  commandName: string;
+  command: CommandUnion;
+
+  constructor(command: CommandUnion) {
+    super("message");
+    this.command = command;
+    this.commandName = command.command;
+  }
+}
+
 export class ChatClient {
   ws!: WebSocket;
   clientNick!: string;
   clientPass!: string;
   connected: boolean = false;
+  listeners: {} = {};
   richMsgConfig!: {
     enable: boolean;
     helixClient?: HelixClient;
@@ -412,16 +431,20 @@ export class ChatClient {
     }
   }
 
-  public listen(command: string) {
-    if (!this.connected) {
-      throw "Connect to IRC by calling connect() first!!";
-    }
-  }
+  public listen(
+    options: listenerOptions,
+    handler: (event: MessageEvent) => void
+  ): void {}
 
-  parseTwitchMessages(message: string): CommandType | Array<CommandType> {
+  public removeListener(
+    options: listenerOptions,
+    handler: (event: MessageEvent) => void
+  ): void {}
+
+  parseTwitchMessages(message: string): CommandUnion | Array<CommandUnion> {
     message = message.trim();
     let toParse = message.split("\r\n");
-    let messages: any[] = [];
+    let messages: CommandUnion[] = [];
 
     toParse.forEach((message) => {
       message = message.trim();
@@ -433,9 +456,10 @@ export class ChatClient {
           ? this.richMsgConfig.channelBadges!
           : {},
       });
+      messages.push(command);
     });
 
-    return messages;
+    return messages.length > 1 ? messages : messages[0];
   }
 
   static parseMessage(
@@ -444,7 +468,7 @@ export class ChatClient {
       globalBadges: Badges;
       channelBadges: { [channelLogin: string]: Badges };
     }
-  ): CommandType {
+  ): CommandUnion {
     let rawTags: string | undefined;
     let rawSource: string | undefined;
     let rawCommand!: string;
@@ -647,13 +671,13 @@ export class ChatClient {
       });
     }
 
-    let command: CommandType;
+    let command: CommandUnion;
     switch (rawCommand) {
       case "CLEARCHAT":
         command = {
           command: "CLEARCHAT",
           source: source,
-          tags: tags as TwitchTagType["ClearChat"],
+          tags: tags as ClearChat["tags"],
           channel: rawChannel,
           user: rawParam,
         } as ClearChat;
@@ -662,7 +686,7 @@ export class ChatClient {
         command = {
           command: "CLEARMSG",
           source: source!,
-          tags: tags as TwitchTagType["ClearMessage"],
+          tags: tags as ClearMessage["tags"],
           channel: rawChannel!,
           params: rawParam,
         } as ClearMessage;
@@ -671,14 +695,14 @@ export class ChatClient {
         command = {
           command: "GLOBALUSERSTATE",
           source: source,
-          tags: tags as TwitchTagType["GlobalUserState"],
+          tags: tags as GlobalUserState["tags"],
         } as GlobalUserState;
         break;
       case "PRIVMSG":
         command = {
           command: "PRIVMSG",
           source: source,
-          tags: tags as TwitchTagType["PrivMsg"],
+          tags: tags as PrivMsg["tags"],
           channel: rawChannel,
           params: rawParam,
         } as PrivMsg;
@@ -709,7 +733,7 @@ export class ChatClient {
         command = {
           command: "NOTICE",
           source: source,
-          tags: tags as TwitchTagType["Notice"],
+          tags: tags as Notice["tags"],
           channel: rawChannel,
           params: rawParam,
         } as Notice;
@@ -724,20 +748,20 @@ export class ChatClient {
         command = {
           command: "ROOMSTATE",
           source: source,
-          tags: tags as TwitchTagType["RoomState"],
+          tags: tags as RoomState["tags"],
           channel: rawChannel,
         } as RoomState;
         break;
       case "USERNOTICE":
-        const userNoticeTags = tags as TwitchTagType["UserNoticeBase"];
-        let userNoticeCommand: CommandType;
+        const userNoticeTags = tags as UserNoticeBaseTags;
+        let userNoticeCommand: CommandUnion;
         switch (userNoticeTags["msgId"]) {
           case "sub":
             userNoticeCommand = {
               command: "USERNOTICE",
               id: "sub",
               source: source,
-              tags: tags as TwitchTagType["UserNoticeSub"],
+              tags: tags as UserNoticeSub["tags"],
               channel: rawChannel,
               params: rawParam,
             } as UserNoticeSub;
@@ -747,7 +771,7 @@ export class ChatClient {
               command: "USERNOTICE",
               id: "resub",
               source: source,
-              tags: tags as TwitchTagType["UserNoticeReSub"],
+              tags: tags as UserNoticeReSub["tags"],
               channel: rawChannel,
               params: rawParam,
             } as UserNoticeReSub;
@@ -757,7 +781,7 @@ export class ChatClient {
               command: "USERNOTICE",
               id: "subgift",
               source: source,
-              tags: tags as TwitchTagType["UserNoticeSubGift"],
+              tags: tags as UserNoticeSubGift["tags"],
               channel: rawChannel,
               params: rawParam,
             } as UserNoticeSubGift;
@@ -767,7 +791,7 @@ export class ChatClient {
               command: "USERNOTICE",
               id: "giftpaidupgrade",
               source: source,
-              tags: tags as TwitchTagType["UserNoticeGiftPaidUpgrade"],
+              tags: tags as UserNoticeGiftPaidUpgrade["tags"],
               channel: rawChannel,
               params: rawParam,
             } as UserNoticeGiftPaidUpgrade;
@@ -777,7 +801,7 @@ export class ChatClient {
               command: "USERNOTICE",
               id: "anongiftpaidupgrade",
               source: source,
-              tags: tags as TwitchTagType["UserNoticeAnonGiftPaidUpgrade"],
+              tags: tags as UserNoticeAnonGiftPaidUpgrade["tags"],
               channel: rawChannel,
               params: rawParam,
             } as UserNoticeAnonGiftPaidUpgrade;
@@ -787,7 +811,7 @@ export class ChatClient {
               command: "USERNOTICE",
               id: "raid",
               source: source,
-              tags: tags as TwitchTagType["UserNoticeRaid"],
+              tags: tags as UserNoticeRaid["tags"],
               channel: rawChannel,
               params: rawParam,
             } as UserNoticeRaid;
@@ -798,7 +822,7 @@ export class ChatClient {
               command: "USERNOTICE",
               id: "ritual",
               source: source,
-              tags: tags as TwitchTagType["UserNoticeRitual"],
+              tags: tags as UserNoticeRitual["tags"],
               channel: rawChannel,
               params: rawParam,
             } as UserNoticeRitual;
@@ -808,7 +832,7 @@ export class ChatClient {
               command: "USERNOTICE",
               id: "bitsbadgetier",
               source: source,
-              tags: tags as TwitchTagType["UserNoticeBitsBadgeTier"],
+              tags: tags as UserNoticeBitsBadgeTier["tags"],
               channel: rawChannel,
               params: rawParam,
             } as UserNoticeBitsBadgeTier;
@@ -820,7 +844,7 @@ export class ChatClient {
         command = {
           command: "USERSTATE",
           source: source,
-          tags: tags as TwitchTagType["UserState"],
+          tags: tags as UserState["tags"],
           channel: rawChannel,
         } as UserState;
         break;
@@ -829,7 +853,7 @@ export class ChatClient {
         command = {
           command: "WHISPER",
           source: source,
-          tags: tags as TwitchTagType["Whisper"],
+          tags: tags as Whisper["tags"],
           fromUser: fromUser,
           message: message.slice(1),
         } as Whisper;
