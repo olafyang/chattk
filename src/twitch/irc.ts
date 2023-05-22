@@ -434,12 +434,12 @@ export class ChatClient {
   public addListener(
     options: listenerOptions,
     handler: (event: MessageEvent) => void
-  ): void {}
+  ): string {
+    const id = `${Math.floor(Math.random() * 1e5)}`;
+    return id;
+  }
 
-  public removeListener(
-    options: listenerOptions,
-    handler: (event: MessageEvent) => void
-  ): void {}
+  public removeListener(id: string): void {}
 
   parseTwitchMessages(message: string): CommandUnion | Array<CommandUnion> {
     message = message.trim();
