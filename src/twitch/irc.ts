@@ -431,7 +431,7 @@ export class ChatClient {
     }
   }
 
-  public listen(
+  public addListener(
     options: listenerOptions,
     handler: (event: MessageEvent) => void
   ): void {}
