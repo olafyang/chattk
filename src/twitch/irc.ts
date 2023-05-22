@@ -344,8 +344,6 @@ type CommandUnion =
   | Ping
   | UnknownCommand;
 
-type a = Extract<CommandUnion, { tags: any }>;
-
 export type listenerOptions = {
   [command in CommandUnion["command"]]?: {
     // If selected command does not contain 'source', 'source?' is of type never
