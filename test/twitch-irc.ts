@@ -246,7 +246,7 @@ describe("Testing Message Parser", () => {
 
   test("USERSTATE", () => {
     const msg = ChatClient.parseMessage(
-      "@badge-info=;badges=staff/1;color=#0D4200;display-name=ronni;emote-sets=0,33,50,237,793,2126,3517,4578,5569,9400,10337,12239;mod=1;subscriber=1;turbo=1;user-type=staff :tmi.twitch.tv USERSTATE #dallas",
+      "@badge-info=;badges=turbo/1;color=#0D4200;display-name=ronni;emote-sets=0,33,50,237,793,2126,3517,4578,5569,9400,10337,12239;mod=1;subscriber=1;turbo=1;user-type=staff :tmi.twitch.tv USERSTATE #dallas",
       //@ts-expect-error
       meta
     ) as UserState;
@@ -256,7 +256,7 @@ describe("Testing Message Parser", () => {
 
   test("WHISPER", () => {
     const msg = ChatClient.parseMessage(
-      "@badges=staff/1;color=#8A2BE2;display-name=PetsgomOO;emotes=;message-id=306;thread-id=12345678_87654321;turbo=0;user-id=87654321;user-type=staff :petsgomoo!petsgomoo@petsgomoo.tmi.twitch.tv WHISPER foo :hello",
+      "@badges=turbo/1;color=#8A2BE2;display-name=PetsgomOO;emotes=;message-id=306;thread-id=12345678_87654321;turbo=0;user-id=87654321;user-type=staff :petsgomoo!petsgomoo@petsgomoo.tmi.twitch.tv WHISPER foo :hello",
       //@ts-expect-error
       meta
     ) as Whisper;
