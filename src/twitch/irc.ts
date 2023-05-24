@@ -349,24 +349,11 @@ export type ListenerOptions =
   | {
       [command in CommandUnion["command"]]?:
         | {
-            // If selected command does not contain 'source', 'source?' is of type never
-            // -> If contains source, maps the source type to 'source?'
-            // Same goes for other attributes
-            source?: Extract<CommandUnion, { source: any }> extends undefined
-              ? never
-              : Partial<Extract<CommandUnion, { source: any }>["source"]> | "*";
-            tags?: Extract<CommandUnion, { tags: any }> extends undefined
-              ? never
-              : Partial<Extract<CommandUnion, { tags: any }>["tags"]> | "*";
+            // If selected command does not contain 'channel', 'channel?' is of type never
+            // -> If contains channel, maps the source type to 'channel?'
             channel?: Extract<CommandUnion, { channel: any }> extends undefined
               ? never
-              : string | "*";
-            params?: Extract<CommandUnion, { params: any }> extends undefined
-              ? never
-              : string | "*";
-            user?: Extract<CommandUnion, { user: any }> extends undefined
-              ? never
-              : string | "*";
+              : string | Array<string> | "*";
           }
         | "*";
     }
@@ -463,10 +450,11 @@ export class ChatClient {
   }
 
   dispatchEvent(command: CommandUnion) {
-    for (const [listner, option] of this.listeners) {
+    for (let [listner, option] of this.listeners) {
       const messageEvent = new MessageEvent(command);
       if (option === "*") {
         listner(messageEvent);
+        break;
       }
     }
   }
