@@ -2,9 +2,10 @@ import { HelixClient, Badge, Badges } from "./helix";
 
 export interface Emote {
   id: string;
+  name: string;
   usage: Array<{
     startPos: number;
-    length: number;
+    endPos: number;
   }>;
   images: {
     "1x": URL;
@@ -344,37 +345,39 @@ type CommandUnion =
   | Ping
   | UnknownCommand;
 
-export type listenerOptions = {
-  [command in CommandUnion["command"]]?: {
-    // If selected command does not contain 'source', 'source?' is of type never
-    // -> If contains source, maps the source type to 'source?'
-    // Same goes for other attributes
-    source?: Extract<CommandUnion, { source: any }> extends undefined
-      ? never
-      : Partial<Extract<CommandUnion, { source: any }>["source"]>;
-    tags?: Extract<CommandUnion, { tags: any }> extends undefined
-      ? never
-      : Partial<Extract<CommandUnion, { tags: any }>["tags"]>;
-    channel?: Extract<CommandUnion, { channel: any }> extends undefined
-      ? never
-      : string;
-    params?: Extract<CommandUnion, { params: any }> extends undefined
-      ? never
-      : string;
-    user?: Extract<CommandUnion, { user: any }> extends undefined
-      ? never
-      : string;
-  };
-};
+export type ListenerOptions =
+  | {
+      [command in CommandUnion["command"]]?:
+        | {
+            // If selected command does not contain 'source', 'source?' is of type never
+            // -> If contains source, maps the source type to 'source?'
+            // Same goes for other attributes
+            source?: Extract<CommandUnion, { source: any }> extends undefined
+              ? never
+              : Partial<Extract<CommandUnion, { source: any }>["source"]> | "*";
+            tags?: Extract<CommandUnion, { tags: any }> extends undefined
+              ? never
+              : Partial<Extract<CommandUnion, { tags: any }>["tags"]> | "*";
+            channel?: Extract<CommandUnion, { channel: any }> extends undefined
+              ? never
+              : string | "*";
+            params?: Extract<CommandUnion, { params: any }> extends undefined
+              ? never
+              : string | "*";
+            user?: Extract<CommandUnion, { user: any }> extends undefined
+              ? never
+              : string | "*";
+          }
+        | "*";
+    }
+  | "*";
 
 class MessageEvent extends Event {
-  commandName: string;
   command: CommandUnion;
 
   constructor(command: CommandUnion) {
-    super("message");
+    super("irc");
     this.command = command;
-    this.commandName = command.command;
   }
 }
 
@@ -383,7 +386,7 @@ export class ChatClient {
   clientNick!: string;
   clientPass!: string;
   connected: boolean = false;
-  listeners: {} = {};
+  listeners: Map<(event: MessageEvent) => void, ListenerOptions> = new Map();
   richMsgConfig!: {
     enable: boolean;
     helixClient?: HelixClient;
@@ -430,19 +433,19 @@ export class ChatClient {
   }
 
   public addListener(
-    options: listenerOptions,
-    handler: (event: MessageEvent) => void
-  ): string {
-    const id = `${Math.floor(Math.random() * 1e5)}`;
-    return id;
+    handler: (event: MessageEvent) => void,
+    options: ListenerOptions = { PRIVMSG: "*" }
+  ): void {
+    this.listeners.set(handler, options);
   }
 
-  public removeListener(id: string): void {}
+  public removeListener(handler: (event: MessageEvent) => void): boolean {
+    return this.listeners.delete(handler);
+  }
 
-  parseTwitchMessages(message: string): CommandUnion | Array<CommandUnion> {
+  private parseTwitchMessages(message: string) {
     message = message.trim();
     let toParse = message.split("\r\n");
-    let messages: CommandUnion[] = [];
 
     toParse.forEach((message) => {
       message = message.trim();
@@ -454,10 +457,18 @@ export class ChatClient {
           ? this.richMsgConfig.channelBadges!
           : {},
       });
-      messages.push(command);
-    });
 
-    return messages.length > 1 ? messages : messages[0];
+      this.dispatchEvent(command);
+    });
+  }
+
+  dispatchEvent(command: CommandUnion) {
+    for (const [listner, option] of this.listeners) {
+      const messageEvent = new MessageEvent(command);
+      if (option === "*") {
+        listner(messageEvent);
+      }
+    }
   }
 
   static parseMessage(
@@ -587,19 +598,19 @@ export class ChatClient {
 
                 let usage: Array<{
                   startPos: number;
-                  length: number;
+                  endPos: number;
                 }> = [];
 
                 const [emoteId, rawUsage] = rawEmote.split(":");
                 rawUsage.split(",").forEach((use) => {
                   const startPos = Number(use.split("-")[0]);
                   const endPos = Number(use.split("-")[1]) + 1;
-                  const length = endPos - startPos;
-                  usage.push({ startPos: startPos, length: length });
+                  usage.push({ startPos: startPos, endPos: endPos });
                 });
 
                 emotes.push({
                   id: emoteId,
+                  name: rawParam!.slice(usage[0].startPos, usage[0].endPos),
                   usage: usage,
                   images: {
                     "1x": new URL(

@@ -158,9 +158,10 @@ describe("Testing Message Parser", () => {
     assert.deepEqual(msg.tags.emotes, [
       {
         id: "25",
+        name: "Kappa",
         usage: [
-          { startPos: 0, length: 5 },
-          { startPos: 12, length: 5 },
+          { startPos: 0, endPos: 5 },
+          { startPos: 12, endPos: 17 },
         ],
         images: {
           "1x": new URL(
@@ -176,7 +177,8 @@ describe("Testing Message Parser", () => {
       },
       {
         id: "1902",
-        usage: [{ startPos: 6, length: 5 }],
+        name: "Keepo",
+        usage: [{ startPos: 6, endPos: 11 }],
         images: {
           "1x": new URL(
             "https://static-cdn.jtvnw.net/emoticons/v2/1902/default/dark/1.0"
