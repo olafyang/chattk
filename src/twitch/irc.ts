@@ -1,4 +1,9 @@
-import { HelixClient, Badge, Badges } from "./helix";
+import NodeWS from "ws";
+
+interface Badge {
+  name: string;
+  id: string;
+}
 
 export interface Emote {
   id: string;
@@ -57,7 +62,7 @@ interface Sendable {
 
 type UserNoticeBaseTags = {
   badgeInfo: BadgeInfo;
-  badges: Badges;
+  badges: Badge[];
   color: string;
   displayName: string;
   emotes: Array<Emote>;
@@ -105,7 +110,7 @@ export interface GlobalUserState {
   source: MessageSource;
   tags: {
     badgeInfo: BadgeInfo;
-    badges: Badges;
+    badges: Badge[];
     color: string;
     displayName: string;
     emoteSets: string;
@@ -252,7 +257,7 @@ export interface UserState {
   source: MessageSource;
   tags: {
     badgeInfo: BadgeInfo;
-    badges: Badges;
+    badges: Badge[];
     color: string;
     displayName: string;
     emoteSets: string;
@@ -269,7 +274,7 @@ export interface Whisper {
   command: "WHISPER";
   source: MessageSource;
   tags: {
-    badges: Badges;
+    badges: Badge[];
     color: string;
     displayName: string;
     emotes: Array<Emote>;
@@ -374,48 +379,49 @@ export class ChatClient {
   clientPass!: string;
   connected: boolean = false;
   listeners: Map<(event: MessageEvent) => void, ListenerOptions> = new Map();
-  richMsgConfig!: {
-    enable: boolean;
-    helixClient?: HelixClient;
-    globalBadges?: Badges;
-    channelBadges?: { [channelLogin: string]: Badges };
-  };
+  enableRichMsg!: boolean;
 
   constructor() {}
 
-  public async connect(
+  public connect(
     nick?: string,
     pass?: string,
-    richMsgConfig?: typeof this.richMsgConfig
+    enableRichMsg: boolean = true,
+    server = "wss://irc-ws.chat.twitch.tv:443"
   ) {
     this.clientNick = nick ?? `justinfan${Math.floor(Math.random() * 1e4)}`;
     this.clientPass = pass ?? "SCHMOOPIIE";
 
-    this.ws = new WebSocket("wss://irc-ws.chat.twitch.tv:443");
-    this.ws.send(`PASS ${this.clientPass}`);
-    this.ws.send(`NICK ${this.clientNick}`);
-
-    if (richMsgConfig && richMsgConfig.enable) {
-      this.richMsgConfig = richMsgConfig;
-      this.ws.send("CAP REQ :twitch.tv/commands twitch.tv/tags");
-      this.richMsgConfig.globalBadges =
-        await this.richMsgConfig.helixClient!.getBadges();
+    let _WebSocket: typeof WebSocket | typeof NodeWS;
+    if (typeof window === "undefined") {
+      _WebSocket = NodeWS;
     } else {
-      this.richMsgConfig = {
-        enable: false,
-      };
+      _WebSocket = window.WebSocket;
     }
+    this.ws = new _WebSocket(server) as WebSocket;
+
+    this.ws.onopen = (event) => {
+      this.ws.send(`PASS ${this.clientPass}`);
+      this.ws.send(`NICK ${this.clientNick}`);
+
+      if (enableRichMsg) {
+        this.enableRichMsg = enableRichMsg;
+        this.ws.send("CAP REQ :twitch.tv/commands twitch.tv/tags");
+      }
+    };
+    this.ws.onmessage = (event) => {
+      this.ircHandler(event.data);
+    };
     this.connected = true;
   }
 
   public async join(channelLogin: string) {
-    if (this.richMsgConfig.enable) {
-      const channelId = await this.richMsgConfig.helixClient!.getUserId(
-        channelLogin
-      );
+    // TODO join channel
+  }
 
-      this.richMsgConfig.channelBadges![channelLogin] =
-        await this.richMsgConfig.helixClient!.getBadges(channelId);
+  public close() {
+    if (this.connected) {
+      this.ws.close();
     }
   }
 
@@ -430,42 +436,44 @@ export class ChatClient {
     return this.listeners.delete(handler);
   }
 
-  private parseTwitchMessages(message: string) {
+  private ircHandler(message: string) {
     message = message.trim();
     let toParse = message.split("\r\n");
 
     toParse.forEach((message) => {
       message = message.trim();
-      const command = ChatClient.parseMessage(message, {
-        globalBadges: this.richMsgConfig.enable
-          ? this.richMsgConfig.globalBadges!
-          : {},
-        channelBadges: this.richMsgConfig.enable
-          ? this.richMsgConfig.channelBadges!
-          : {},
-      });
+      const command = ChatClient.parseMessage(message);
 
       this.dispatchEvent(command);
     });
   }
 
   dispatchEvent(command: CommandUnion) {
-    for (let [listner, option] of this.listeners) {
+    for (const [listner, options] of this.listeners) {
       const messageEvent = new MessageEvent(command);
-      if (option === "*") {
+
+      if (options === "*") {
         listner(messageEvent);
-        break;
+        return;
+      }
+
+      if (!Object.hasOwn(options, command.command)) {
+        return;
+      }
+
+      for (const opt of Object.keys(options)) {
+        switch (opt) {
+          case "channel":
+            if (typeof opt === "string" && Object.hasOwn(command, "channel")) {
+              console.log(123);
+            }
+            break;
+        }
       }
     }
   }
 
-  static parseMessage(
-    message: string,
-    meta: {
-      globalBadges: Badges;
-      channelBadges: { [channelLogin: string]: Badges };
-    }
-  ): CommandUnion {
+  static parseMessage(message: string): CommandUnion {
     let rawTags: string | undefined;
     let rawSource: string | undefined;
     let rawCommand!: string;
@@ -554,26 +562,10 @@ export class ChatClient {
                 const badgeName = badgeRaw.split("/")[0];
                 const badgeId = badgeRaw.split("/")[1];
 
-                let isChannelBadge = true;
-                let channelBadgesLocalScope = meta.channelBadges;
-                for (const scope of [rawChannel!, badgeName, badgeId]) {
-                  if (isChannelBadge) {
-                    isChannelBadge =
-                      isChannelBadge &&
-                      Object.hasOwn(channelBadgesLocalScope, scope);
-                    // @ts-expect-error
-                    channelBadgesLocalScope = channelBadgesLocalScope[scope];
-                  }
-                }
-
-                const badge = {
+                badges.push({
                   name: badgeName,
                   id: badgeId,
-                  images: isChannelBadge
-                    ? meta.channelBadges[rawChannel!][badgeName][badgeId]
-                    : meta.globalBadges[badgeName][badgeId],
-                };
-                badges.push(badge);
+                });
               });
               return badges;
             case "emotes":

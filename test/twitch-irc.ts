@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
+import { WebSocketServer } from "ws";
 
 import {
   ClearChat,
@@ -15,61 +16,9 @@ import {
 } from "../src/twitch/irc.js";
 
 describe("Testing Message Parser", () => {
-  const meta = {
-    globalBadges: {
-      subscriber: {
-        "0": {
-          "1x": "https://static-cdn.jtvnw.net/badges/v1/5d9f2208-5dd8-11e7-8513-2ff4adfae661/1",
-          "2x": "https://static-cdn.jtvnw.net/badges/v1/5d9f2208-5dd8-11e7-8513-2ff4adfae661/2",
-          "4x": "https://static-cdn.jtvnw.net/badges/v1/5d9f2208-5dd8-11e7-8513-2ff4adfae661/3",
-        },
-        "1": {
-          "1x": "https://static-cdn.jtvnw.net/badges/v1/5d9f2208-5dd8-11e7-8513-2ff4adfae661/1",
-          "2x": "https://static-cdn.jtvnw.net/badges/v1/5d9f2208-5dd8-11e7-8513-2ff4adfae661/2",
-          "4x": "https://static-cdn.jtvnw.net/badges/v1/5d9f2208-5dd8-11e7-8513-2ff4adfae661/3",
-        },
-        "2": {
-          "1x": "https://static-cdn.jtvnw.net/badges/v1/25a03e36-2bb2-4625-bd37-d6d9d406238d/1",
-          "2x": "https://static-cdn.jtvnw.net/badges/v1/25a03e36-2bb2-4625-bd37-d6d9d406238d/2",
-          "4x": "https://static-cdn.jtvnw.net/badges/v1/25a03e36-2bb2-4625-bd37-d6d9d406238d/3",
-        },
-        "3": {
-          "1x": "https://static-cdn.jtvnw.net/badges/v1/e8984705-d091-4e54-8241-e53b30a84b0e/1",
-          "2x": "https://static-cdn.jtvnw.net/badges/v1/e8984705-d091-4e54-8241-e53b30a84b0e/2",
-          "4x": "https://static-cdn.jtvnw.net/badges/v1/e8984705-d091-4e54-8241-e53b30a84b0e/3",
-        },
-        "4": {
-          "1x": "https://static-cdn.jtvnw.net/badges/v1/2d2485f6-d19b-4daa-8393-9493b019156b/1",
-          "2x": "https://static-cdn.jtvnw.net/badges/v1/2d2485f6-d19b-4daa-8393-9493b019156b/2",
-          "4x": "https://static-cdn.jtvnw.net/badges/v1/2d2485f6-d19b-4daa-8393-9493b019156b/3",
-        },
-        "5": {
-          "1x": "https://static-cdn.jtvnw.net/badges/v1/b4e6b13a-a76f-4c56-87e1-9375a7aaa610/1",
-          "2x": "https://static-cdn.jtvnw.net/badges/v1/b4e6b13a-a76f-4c56-87e1-9375a7aaa610/2",
-          "4x": "https://static-cdn.jtvnw.net/badges/v1/b4e6b13a-a76f-4c56-87e1-9375a7aaa610/3",
-        },
-        "6": {
-          "1x": "https://static-cdn.jtvnw.net/badges/v1/ed51a614-2c44-4a60-80b6-62908436b43a/1",
-          "2x": "https://static-cdn.jtvnw.net/badges/v1/ed51a614-2c44-4a60-80b6-62908436b43a/2",
-          "4x": "https://static-cdn.jtvnw.net/badges/v1/ed51a614-2c44-4a60-80b6-62908436b43a/3",
-        },
-      },
-      turbo: {
-        "1": {
-          "1x": "https://static-cdn.jtvnw.net/badges/v1/bd444ec6-8f34-4bf9-91f4-af1e3428d80f/1",
-          "2x": "https://static-cdn.jtvnw.net/badges/v1/bd444ec6-8f34-4bf9-91f4-af1e3428d80f/2",
-          "4x": "https://static-cdn.jtvnw.net/badges/v1/bd444ec6-8f34-4bf9-91f4-af1e3428d80f/3",
-        },
-      },
-    },
-    channelBadges: {},
-  };
-
   test("CLEARCHAT", () => {
     const msg = ChatClient.parseMessage(
-      "@room-id=12345678;target-user-id=87654321;tmi-sent-ts=1642715756806 :tmi.twitch.tv CLEARCHAT #dallas :ronni",
-      //@ts-expect-error
-      meta
+      "@room-id=12345678;target-user-id=87654321;tmi-sent-ts=1642715756806 :tmi.twitch.tv CLEARCHAT #dallas :ronni"
     ) as ClearChat;
 
     assert.equal(msg.command, "CLEARCHAT");
@@ -83,9 +32,7 @@ describe("Testing Message Parser", () => {
 
   test("CLEARMSG", () => {
     const msg: ClearMessage = ChatClient.parseMessage(
-      "@login=foo;room-id=;target-msg-id=94e6c7ff-bf98-4faa-af5d-7ad633a158a9;tmi-sent-ts=1642720582342 :tmi.twitch.tv CLEARMSG #bar :what a great day",
-      //@ts-expect-error
-      meta
+      "@login=foo;room-id=;target-msg-id=94e6c7ff-bf98-4faa-af5d-7ad633a158a9;tmi-sent-ts=1642720582342 :tmi.twitch.tv CLEARMSG #bar :what a great day"
     ) as ClearMessage;
 
     assert.equal(msg.command, "CLEARMSG");
@@ -100,16 +47,12 @@ describe("Testing Message Parser", () => {
 
   test("GLOBALUSERSTATE", () => {
     const msg = ChatClient.parseMessage(
-      "@badge-info=subscriber/8;badges=subscriber/6;color=#0D4200;display-name=dallas;emote-sets=0,33,50,237,793,2126,3517,4578,5569,9400,10337,12239;turbo=0;user-id=12345678;user-type=admin :tmi.twitch.tv GLOBALUSERSTATE",
-      //@ts-expect-error
-      meta
+      "@badge-info=subscriber/8;badges=subscriber/6;color=#0D4200;display-name=dallas;emote-sets=0,33,50,237,793,2126,3517,4578,5569,9400,10337,12239;turbo=0;user-id=12345678;user-type=admin :tmi.twitch.tv GLOBALUSERSTATE"
     ) as GlobalUserState;
 
     assert.equal(msg.command, "GLOBALUSERSTATE");
     assert.deepEqual(msg.tags.badgeInfo, { subLength: 8 });
-    assert.deepEqual(msg.tags.badges, [
-      { id: "6", images: meta.globalBadges.subscriber[6], name: "subscriber" },
-    ]);
+    assert.deepEqual(msg.tags.badges, [{ id: "6", name: "subscriber" }]);
     assert.equal(msg.tags.color, "#0D4200");
     assert.equal(msg.tags.displayName, "dallas");
     assert.equal(
@@ -124,9 +67,7 @@ describe("Testing Message Parser", () => {
 
   test("NOTICE", () => {
     const msg = ChatClient.parseMessage(
-      "@msg-id=whisper_restricted;target-user-id=12345678 :tmi.twitch.tv NOTICE #bar :Your settings prevent you from sending this whisper.",
-      //@ts-expect-error
-      meta
+      "@msg-id=whisper_restricted;target-user-id=12345678 :tmi.twitch.tv NOTICE #bar :Your settings prevent you from sending this whisper."
     ) as Notice;
 
     assert.equal(msg.command, "NOTICE");
@@ -142,16 +83,12 @@ describe("Testing Message Parser", () => {
 
   test("PRIVMSG Emotes", () => {
     const msg = ChatClient.parseMessage(
-      "@reply-parent-msg-id=b34ccfc7-4977-403a-8a94-33c6bac34fb8;badge-info=;badges=turbo/1;color=#0D4200;display-name=ronni;emotes=25:0-4,12-16/1902:6-10;first-msg=0;id=b34ccfc7-4977-403a-8a94-33c6bac34fb8;mod=0;room-id=1337;subscriber=0;tmi-sent-ts=1507246572675;turbo=1;user-id=1337;user-type=global_mod :ronni!ronni@ronni.tmi.twitch.tv PRIVMSG #ronni :Kappa Keepo Kappa",
-      //@ts-expect-error
-      meta
+      "@reply-parent-msg-id=b34ccfc7-4977-403a-8a94-33c6bac34fb8;badge-info=;badges=turbo/1;color=#0D4200;display-name=ronni;emotes=25:0-4,12-16/1902:6-10;first-msg=0;id=b34ccfc7-4977-403a-8a94-33c6bac34fb8;mod=0;room-id=1337;subscriber=0;tmi-sent-ts=1507246572675;turbo=1;user-id=1337;user-type=global_mod :ronni!ronni@ronni.tmi.twitch.tv PRIVMSG #ronni :Kappa Keepo Kappa"
     ) as PrivMsg;
 
     assert.equal(msg.command, "PRIVMSG");
     assert.equal(msg.tags.badgeInfo, undefined);
-    assert.deepEqual(msg.tags.badges, [
-      { id: "1", images: meta.globalBadges.turbo[1], name: "turbo" },
-    ]);
+    assert.deepEqual(msg.tags.badges, [{ id: "1", name: "turbo" }]);
     assert.equal(msg.tags.bits, undefined);
     assert.equal(msg.tags.color, "#0D4200");
     assert.equal(msg.tags.displayName, "ronni");
@@ -214,9 +151,7 @@ describe("Testing Message Parser", () => {
 
   test("ROOMSTATE", () => {
     const msg = ChatClient.parseMessage(
-      "@emote-only=0;followers-only=0;r9k=0;slow=0;subs-only=0 :tmi.twitch.tv ROOMSTATE #dallas",
-      //@ts-expect-error
-      meta
+      "@emote-only=0;followers-only=0;r9k=0;slow=0;subs-only=0 :tmi.twitch.tv ROOMSTATE #dallas"
     ) as RoomState;
 
     assert.equal(msg.command, "ROOMSTATE");
@@ -230,9 +165,7 @@ describe("Testing Message Parser", () => {
 
   test("USERNOTICE", () => {
     const msg = ChatClient.parseMessage(
-      "@badge-info=;badges=turbo/1;color=#9ACD32;display-name=TestChannel;emotes=;id=3d830f12-795c-447d-af3c-ea05e40fbddb;login=testchannel;mod=0;msg-id=raid;msg-param-displayName=TestChannel;msg-param-login=testchannel;msg-param-viewerCount=15;room-id=33332222;subscriber=0;system-msg=15sraiderssfromsTestChannelshavesjoined\n!;tmi-sent-ts=1507246572675;turbo=1;user-id=123456;user-type= :tmi.twitch.tv USERNOTICE #othertestchannel",
-      //@ts-expect-error
-      meta
+      "@badge-info=;badges=turbo/1;color=#9ACD32;display-name=TestChannel;emotes=;id=3d830f12-795c-447d-af3c-ea05e40fbddb;login=testchannel;mod=0;msg-id=raid;msg-param-displayName=TestChannel;msg-param-login=testchannel;msg-param-viewerCount=15;room-id=33332222;subscriber=0;system-msg=15sraiderssfromsTestChannelshavesjoined\n!;tmi-sent-ts=1507246572675;turbo=1;user-id=123456;user-type= :tmi.twitch.tv USERNOTICE #othertestchannel"
     ) as UserNoticeRaid;
 
     assert.equal(msg.command, "USERNOTICE");
@@ -248,9 +181,7 @@ describe("Testing Message Parser", () => {
 
   test("USERSTATE", () => {
     const msg = ChatClient.parseMessage(
-      "@badge-info=;badges=turbo/1;color=#0D4200;display-name=ronni;emote-sets=0,33,50,237,793,2126,3517,4578,5569,9400,10337,12239;mod=1;subscriber=1;turbo=1;user-type=staff :tmi.twitch.tv USERSTATE #dallas",
-      //@ts-expect-error
-      meta
+      "@badge-info=;badges=turbo/1;color=#0D4200;display-name=ronni;emote-sets=0,33,50,237,793,2126,3517,4578,5569,9400,10337,12239;mod=1;subscriber=1;turbo=1;user-type=staff :tmi.twitch.tv USERSTATE #dallas"
     ) as UserState;
 
     assert.equal(msg.command, "USERSTATE");
@@ -258,9 +189,7 @@ describe("Testing Message Parser", () => {
 
   test("WHISPER", () => {
     const msg = ChatClient.parseMessage(
-      "@badges=turbo/1;color=#8A2BE2;display-name=PetsgomOO;emotes=;message-id=306;thread-id=12345678_87654321;turbo=0;user-id=87654321;user-type=staff :petsgomoo!petsgomoo@petsgomoo.tmi.twitch.tv WHISPER foo :hello",
-      //@ts-expect-error
-      meta
+      "@badges=turbo/1;color=#8A2BE2;display-name=PetsgomOO;emotes=;message-id=306;thread-id=12345678_87654321;turbo=0;user-id=87654321;user-type=staff :petsgomoo!petsgomoo@petsgomoo.tmi.twitch.tv WHISPER foo :hello"
     ) as Whisper;
 
     assert.equal(msg.command, "WHISPER");
@@ -272,3 +201,23 @@ describe("Testing Message Parser", () => {
     assert.equal(msg.message, "hello");
   });
 });
+
+// describe("Testing event emitter", async () => {
+//   const ws = new WebSocketServer({ port: 1450 });
+
+//   ws.on("connection", (ws) => {
+//     ws.on("message", (data) => {
+//       console.log(data.toString("utf-8"));
+//     });
+//   });
+
+//   const chatClient = new ChatClient();
+//   chatClient.connect("justinfan1234", "123345", true, "ws://localhost:1450");
+
+//   chatClient.addListener((event) => {
+//     console.log(event);
+//   });
+
+//   chatClient.close();
+//   ws.close();
+// });
