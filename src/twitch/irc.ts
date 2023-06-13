@@ -389,17 +389,15 @@ class MessageEvent extends Event {
 }
 
 export class ChatClient {
-  ws!: WebSocket;
-  clientNick!: string;
-  clientPass!: string;
+  ws: WebSocket;
+  clientNick: string;
+  clientPass: string;
   connected: boolean = false;
   listeners: Map<(event: MessageEvent) => void, ListenerOptions> = new Map();
   enableRichMsg!: boolean;
   username?: string;
 
-  constructor() {}
-
-  public connect(
+  constructor(
     nick?: string,
     pass?: string,
     enableRichMsg: boolean = true,
@@ -428,7 +426,6 @@ export class ChatClient {
     this.ws.onmessage = (event) => {
       this.ircHandler(event.data);
     };
-    this.connected = true;
   }
 
   public join(channelLogin: string) {
@@ -460,6 +457,9 @@ export class ChatClient {
       message = message.trim();
       const command = ChatClient.parseMessage(message);
 
+      if (command.command === "376") {
+        this.connected = true;
+      }
       this.dispatchEvent(command);
     });
   }
