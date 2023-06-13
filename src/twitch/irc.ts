@@ -301,7 +301,7 @@ export interface Reconnect {
   source: MessageSource;
 }
 
-type IRCINFO =
+type IrcInfo =
   | {
       command: "002" | "003" | "004" | "375" | "372";
       info: "info";
@@ -314,6 +314,11 @@ type IRCINFO =
       command: "376";
       info: "connected";
     };
+
+interface Cap {
+  command: "CAP";
+  acknowledged: boolean;
+}
 
 export interface Join extends Sendable {
   channel: string | Array<string>;
@@ -361,7 +366,8 @@ type CommandUnion =
   | Whisper
   | HostTarget
   | Reconnect
-  | IRCINFO
+  | IrcInfo
+  | Cap
   | Ping
   | UnknownCommand;
 
@@ -394,13 +400,13 @@ export class ChatClient {
   clientPass: string;
   connected: boolean = false;
   listeners: Map<(event: MessageEvent) => void, ListenerOptions> = new Map();
-  enableRichMsg!: boolean;
+  tags: boolean = false;
   username?: string;
 
   constructor(
     nick?: string,
     pass?: string,
-    enableRichMsg: boolean = true,
+    tags: boolean = true,
     server = "wss://irc-ws.chat.twitch.tv:443"
   ) {
     this.clientNick = nick ?? `justinfan${Math.floor(Math.random() * 1e4)}`;
@@ -418,9 +424,8 @@ export class ChatClient {
       this.ws.send(`PASS ${this.clientPass}`);
       this.ws.send(`NICK ${this.clientNick}`);
 
-      if (enableRichMsg) {
-        this.enableRichMsg = enableRichMsg;
-        this.ws.send("CAP REQ :twitch.tv/commands twitch.tv/tags");
+      if (tags) {
+        this.ws.send("CAP REQ :twitch.tv/tags");
       }
     };
     this.ws.onmessage = (event) => {
@@ -429,13 +434,13 @@ export class ChatClient {
   }
 
   public join(channelLogin: string) {
-    // TODO join channel
+    if (this.connected) {
+      this.ws.send(`JOIN #${channelLogin}`);
+    }
   }
 
   public close() {
-    if (this.connected) {
-      this.ws.close();
-    }
+    this.ws.close();
   }
 
   public addListener(
@@ -451,20 +456,35 @@ export class ChatClient {
 
   private ircHandler(message: string) {
     message = message.trim();
-    let toParse = message.split("\r\n");
+    let toParse = message.split("\n");
 
     toParse.forEach((message) => {
       message = message.trim();
       const command = ChatClient.parseMessage(message);
+      if (command.command === "UNKNOWN") {
+        console.log(`Unknown command: ${message}`);
+        return;
+      }
+      if (command.command === "PING") {
+        this.ws.send("PONG");
+        return;
+      }
 
       if (command.command === "376") {
+        console.log("Successfully connected to irc server");
         this.connected = true;
       }
+
+      if (command.command === "CAP" && command.acknowledged) {
+        this.tags = true;
+        console.log("IRC tags successfully requested");
+      }
+
       this.dispatchEvent(command);
     });
   }
 
-  dispatchEvent(command: CommandUnion) {
+  private dispatchEvent(command: CommandUnion) {
     for (const [listner, options] of this.listeners) {
       const messageEvent = new MessageEvent(command);
 
@@ -863,17 +883,36 @@ export class ChatClient {
           message: message.slice(1),
         } as Whisper;
         break;
-      case "001" || "002" || "003" || "004" || "375" || "372" || "376":
-        let info: IRCINFO["info"] = "info";
-        if (rawCommand === "001") {
-          info = "auth_success";
-        } else if (rawCommand === "376") {
-          info = "connected";
-        }
+      // Informational Commands
+      case "001":
         command = {
           command: rawCommand,
-          info: info,
-        } as IRCINFO;
+          info: "auth_success",
+        } as IrcInfo;
+        break;
+      case "376":
+        command = {
+          command: rawCommand,
+          info: "connected",
+        } as IrcInfo;
+        break;
+      case "002":
+      case "003":
+      case "004":
+      case "375":
+      case "372":
+        command = {
+          command: rawCommand,
+          info: "info",
+        } as IrcInfo;
+        break;
+
+      case "CAP":
+        if (rawParam === "* ACK :twitch.tv/tags") {
+          command = { command: "CAP", acknowledged: true } as Cap;
+        } else {
+          command = { command: "CAP", acknowledged: false } as Cap;
+        }
         break;
       default:
         command = { command: "UNKNOWN" } as UnknownCommand;

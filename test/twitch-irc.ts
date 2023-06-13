@@ -202,22 +202,71 @@ describe("Testing Message Parser", () => {
   });
 });
 
-// describe("Testing event emitter", async () => {
-//   const ws = new WebSocketServer({ port: 1450 });
+describe("Testing event emitter", () => {
+  let cases: Array<{
+    command: string;
+    serverMessage?: string;
+    clientMessage?: string;
+    serverResponse?: string;
+  }> = [
+    {
+      command: "PASS",
+      clientMessage: "PASS SCHMOOPIIE",
+    },
+    {
+      command: "NICK",
+      clientMessage: "NICK justinfan1234",
+      serverResponse: `:tmi.twitch.tv 001 justinfan12345 :Welcome, GLHF!
+:tmi.twitch.tv 002 justinfan12345 :Your host is tmi.twitch.tv
+:tmi.twitch.tv 003 justinfan12345 :This server is rather new
+:tmi.twitch.tv 004 justinfan12345 :-
+:tmi.twitch.tv 375 justinfan12345 :-
+:tmi.twitch.tv 372 justinfan12345 :You are in a maze of twisty passages, all alike.
+:tmi.twitch.tv 376 justinfan12345 :>`,
+    },
+    {
+      command: "CAP",
+      clientMessage: "CAP REQ :twitch.tv/tags",
+      serverResponse: ":tmi.twitch.tv CAP * ACK :twitch.tv/tags",
+    },
+    {
+      command: "PRIVMSG",
+      serverMessage:
+        "@reply-parent-msg-id=b34ccfc7-4977-403a-8a94-33c6bac34fb8;badge-info=;badges=turbo/1;color=#0D4200;display-name=ronni;emotes=25:0-4,12-16/1902:6-10;first-msg=0;id=b34ccfc7-4977-403a-8a94-33c6bac34fb8;mod=0;room-id=1337;subscriber=0;tmi-sent-ts=1507246572675;turbo=1;user-id=1337;user-type=global_mod :ronni!ronni@ronni.tmi.twitch.tv PRIVMSG #ronni :Kappa Keepo Kappa",
+      clientMessage: ":ronni!ronni@ronni.tmi.twitch.tv PRIVMSG #ronni :reply",
+    },
+  ];
 
-//   ws.on("connection", (ws) => {
-//     ws.on("message", (data) => {
-//       console.log(data.toString("utf-8"));
-//     });
-//   });
+  cases = cases.reverse();
 
-//   const chatClient = new ChatClient();
-//   chatClient.connect("justinfan1234", "123345", true, "ws://localhost:1450");
+  const ws = new WebSocketServer({ port: 1450 });
 
-//   chatClient.addListener((event) => {
-//     console.log(event);
-//   });
+  const chatClient = new ChatClient(
+    "justinfan1234",
+    "SCHMOOPIIE",
+    true,
+    "ws://localhost:1450"
+  );
+  chatClient.addListener((event) => {
+    if (event.command.command === "PRIVMSG") {
+      assert.deepEqual(event.command.params, "Kappa Keepo Kappa");
+      chatClient.close();
+      ws.close();
+    }
+  }, "*");
+  ws.on("connection", (socket) => {
+    socket.on("message", (data) => {
+      const message = data.toString("utf-8");
+      const testCase = cases.pop()!;
+      assert.deepEqual(message, testCase.clientMessage);
+      if (testCase.serverResponse) {
+        socket.send(testCase.serverResponse);
+      }
 
-//   chatClient.close();
-//   ws.close();
-// });
+      if (cases.length === 1) {
+        const sendMessage = cases.pop()!;
+        socket.send(sendMessage.serverMessage!);
+      }
+    });
+  });
+});
