@@ -301,6 +301,20 @@ export interface Reconnect {
   source: MessageSource;
 }
 
+type IRCINFO =
+  | {
+      command: "002" | "003" | "004" | "375" | "372";
+      info: "info";
+    }
+  | {
+      command: "001";
+      info: "auth_success";
+    }
+  | {
+      command: "376";
+      info: "connected";
+    };
+
 export interface Join extends Sendable {
   channel: string | Array<string>;
 }
@@ -347,6 +361,7 @@ type CommandUnion =
   | Whisper
   | HostTarget
   | Reconnect
+  | IRCINFO
   | Ping
   | UnknownCommand;
 
@@ -380,6 +395,7 @@ export class ChatClient {
   connected: boolean = false;
   listeners: Map<(event: MessageEvent) => void, ListenerOptions> = new Map();
   enableRichMsg!: boolean;
+  username?: string;
 
   constructor() {}
 
@@ -415,7 +431,7 @@ export class ChatClient {
     this.connected = true;
   }
 
-  public async join(channelLogin: string) {
+  public join(channelLogin: string) {
     // TODO join channel
   }
 
@@ -847,8 +863,21 @@ export class ChatClient {
           message: message.slice(1),
         } as Whisper;
         break;
+      case "001" || "002" || "003" || "004" || "375" || "372" || "376":
+        let info: IRCINFO["info"] = "info";
+        if (rawCommand === "001") {
+          info = "auth_success";
+        } else if (rawCommand === "376") {
+          info = "connected";
+        }
+        command = {
+          command: rawCommand,
+          info: info,
+        } as IRCINFO;
+        break;
       default:
         command = { command: "UNKNOWN" } as UnknownCommand;
+        break;
     }
     return command;
   }
