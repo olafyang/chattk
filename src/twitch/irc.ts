@@ -303,7 +303,7 @@ export interface Reconnect {
 
 type IrcInfo =
   | {
-      command: "002" | "003" | "004" | "375" | "372";
+      command: "002" | "003" | "004" | "375" | "372" | "366";
       info: "info";
     }
   | {
@@ -313,6 +313,10 @@ type IrcInfo =
   | {
       command: "376";
       info: "connected";
+    }
+  | {
+      command: "353";
+      info: "joined_channel";
     };
 
 interface Cap {
@@ -373,15 +377,7 @@ type CommandUnion =
 
 export type ListenerOptions =
   | {
-      [command in CommandUnion["command"]]?:
-        | {
-            // If selected command does not contain 'channel', 'channel?' is of type never
-            // -> If contains channel, maps the source type to 'channel?'
-            channel?: Extract<CommandUnion, { channel: any }> extends undefined
-              ? never
-              : string | Array<string> | "*";
-          }
-        | "*";
+      commands: CommandUnion["command"] | Array<CommandUnion["command"]>;
     }
   | "*";
 
@@ -395,13 +391,15 @@ class MessageEvent extends Event {
 }
 
 export class ChatClient {
-  ws: WebSocket;
+  ws!: WebSocket;
   clientNick: string;
   clientPass: string;
   connected: boolean = false;
   listeners: Map<(event: MessageEvent) => void, ListenerOptions> = new Map();
   tags: boolean = false;
   username?: string;
+  channels: Array<string> = [];
+  server: URL;
 
   constructor(
     nick?: string,
@@ -411,20 +409,26 @@ export class ChatClient {
   ) {
     this.clientNick = nick ?? `justinfan${Math.floor(Math.random() * 1e4)}`;
     this.clientPass = pass ?? "SCHMOOPIIE";
+    this.tags = tags;
+    this.server = new URL(server);
 
+    this.connect();
+  }
+
+  private connect() {
     let _WebSocket: typeof WebSocket | typeof NodeWS;
     if (typeof window === "undefined") {
       _WebSocket = NodeWS;
     } else {
       _WebSocket = window.WebSocket;
     }
-    this.ws = new _WebSocket(server) as WebSocket;
+    this.ws = new _WebSocket(this.server) as WebSocket;
 
     this.ws.onopen = (event) => {
       this.ws.send(`PASS ${this.clientPass}`);
       this.ws.send(`NICK ${this.clientNick}`);
 
-      if (tags) {
+      if (this.tags) {
         this.ws.send("CAP REQ :twitch.tv/tags");
       }
     };
@@ -433,19 +437,48 @@ export class ChatClient {
     };
   }
 
-  public join(channelLogin: string) {
+  public join(channelLogin: string | string[]) {
     if (this.connected) {
-      this.ws.send(`JOIN #${channelLogin}`);
+      this.ws.send(
+        `JOIN #${
+          typeof channelLogin === "string"
+            ? channelLogin
+            : channelLogin.join(",")
+        }`
+      );
+      console.log(`[twitch.irc] Joining #${channelLogin}`);
     }
   }
 
+  public part(channelLogin: string | string[]) {
+    if (typeof channelLogin === "string") {
+      channelLogin = [channelLogin];
+    }
+
+    let out = "";
+    channelLogin.forEach((channel) => {
+      if (this.channels.includes(channel)) {
+        out += `${channel},`;
+      }
+    });
+
+    out = out.slice(0, -1);
+
+    this.ws.send(`PART #${out}`);
+    console.log(`[twitch.irc] Parting #${out}`);
+  }
+
   public close() {
-    this.ws.close();
+    if (this.connected) {
+      this.ws.close();
+      this.connected = false;
+    }
   }
 
   public addListener(
     handler: (event: MessageEvent) => void,
-    options: ListenerOptions = { PRIVMSG: "*" }
+    // TODO needs work here
+    options: ListenerOptions = { commands: "PRIVMSG" }
   ): void {
     this.listeners.set(handler, options);
   }
@@ -462,22 +495,28 @@ export class ChatClient {
       message = message.trim();
       const command = ChatClient.parseMessage(message);
       if (command.command === "UNKNOWN") {
-        console.log(`Unknown command: ${message}`);
+        console.log(`[twitch.irc] Unknown command: ${message}`);
         return;
       }
       if (command.command === "PING") {
         this.ws.send("PONG");
         return;
       }
+      if (command.command === "RECONNECT") {
+        console.log("[twitch.irc] Requested reconnect, reconnecting");
+        // TODO restore state (present channels before disconnected)
+        this.close();
+        this.connect();
+      }
 
       if (command.command === "376") {
-        console.log("Successfully connected to irc server");
+        console.log("[twitch.irc] Successfully connected to irc server");
         this.connected = true;
       }
 
       if (command.command === "CAP" && command.acknowledged) {
         this.tags = true;
-        console.log("IRC tags successfully requested");
+        console.log("[twitch.irc] IRC tags successfully requested");
       }
 
       this.dispatchEvent(command);
@@ -487,24 +526,14 @@ export class ChatClient {
   private dispatchEvent(command: CommandUnion) {
     for (const [listner, options] of this.listeners) {
       const messageEvent = new MessageEvent(command);
-
       if (options === "*") {
         listner(messageEvent);
         return;
       }
 
-      if (!Object.hasOwn(options, command.command)) {
+      if (options.commands === command.command) {
+        listner(messageEvent);
         return;
-      }
-
-      for (const opt of Object.keys(options)) {
-        switch (opt) {
-          case "channel":
-            if (typeof opt === "string" && Object.hasOwn(command, "channel")) {
-              console.log(123);
-            }
-            break;
-        }
       }
     }
   }
