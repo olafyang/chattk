@@ -319,17 +319,25 @@ type IrcInfo =
       info: "joined_channel";
     };
 
+enum IRCInfoCommands {
+  auth_success = "001",
+  connected = "376",
+  joined_channel = "353",
+}
+
 interface Cap {
   command: "CAP";
   acknowledged: boolean;
 }
 
-export interface Join extends Sendable {
-  channel: string | Array<string>;
+export interface Join {
+  command: "JOIN";
+  channel: string;
 }
 
-export interface Part extends Sendable {
-  channel: string | Array<string>;
+export interface Part {
+  command: "PART";
+  channel: string;
 }
 
 export interface Nick extends Sendable {
@@ -373,6 +381,8 @@ type CommandUnion =
   | IrcInfo
   | Cap
   | Ping
+  | Join
+  | Part
   | UnknownCommand;
 
 export type ListenerOptions =
@@ -398,7 +408,7 @@ export class ChatClient {
   listeners: Map<(event: MessageEvent) => void, ListenerOptions> = new Map();
   tags: boolean = false;
   username?: string;
-  channels: Array<string> = [];
+  channels: Array<{ channelLogin: string; joined: boolean }> = [];
   server: URL;
 
   constructor(
@@ -438,15 +448,17 @@ export class ChatClient {
   }
 
   public join(channelLogin: string | string[]) {
+    let toJoin: typeof this.channels = [];
+    if (typeof channelLogin === "string") {
+      toJoin = [{ channelLogin: channelLogin, joined: false }];
+    } else {
+      toJoin = channelLogin.map((name) => {
+        return { channelLogin: name, joined: false };
+      });
+    }
+    this.channels.concat(toJoin);
     if (this.connected) {
-      this.ws.send(
-        `JOIN #${
-          typeof channelLogin === "string"
-            ? channelLogin
-            : channelLogin.join(",")
-        }`
-      );
-      console.log(`[twitch.irc] Joining #${channelLogin}`);
+      this.joinAllChannel();
     }
   }
 
@@ -455,17 +467,10 @@ export class ChatClient {
       channelLogin = [channelLogin];
     }
 
-    let out = "";
-    channelLogin.forEach((channel) => {
-      if (this.channels.includes(channel)) {
-        out += `${channel},`;
-      }
-    });
+    let toPart = `#${channelLogin.join(",#")}`;
 
-    out = out.slice(0, -1);
-
-    this.ws.send(`PART #${out}`);
-    console.log(`[twitch.irc] Parting #${out}`);
+    this.ws.send(`PART #${toPart}`);
+    console.log(`[twitch.irc] Parting #${toPart}`);
   }
 
   public close() {
@@ -494,33 +499,86 @@ export class ChatClient {
     toParse.forEach((message) => {
       message = message.trim();
       const command = ChatClient.parseMessage(message);
+
       if (command.command === "UNKNOWN") {
         console.log(`[twitch.irc] Unknown command: ${message}`);
         return;
       }
+
       if (command.command === "PING") {
         this.ws.send("PONG");
         return;
       }
+
       if (command.command === "RECONNECT") {
         console.log("[twitch.irc] Requested reconnect, reconnecting");
-        // TODO restore state (present channels before disconnected)
         this.close();
         this.connect();
+        this.channels = this.channels.map((channel) => {
+          return {
+            channelLogin: channel.channelLogin,
+            joined: false,
+          };
+        });
       }
 
-      if (command.command === "376") {
+      if (command.command === "JOIN") {
+        console.log(`[twitch.irc] Joined channel ${command.channel}`);
+
+        let idx = this.channels.findIndex(
+          (channel) => channel.channelLogin === command.channel
+        );
+
+        if (idx === -1) {
+          this.channels.push({ channelLogin: command.channel, joined: true });
+        } else {
+          this.channels[idx] = { channelLogin: command.channel, joined: true };
+        }
+      }
+
+      if (command.command === "PART") {
+        console.log(`[twitch.irc] Left channel ${command.channel}`);
+
+        let idx = this.channels.findIndex(
+          (channel) => channel.channelLogin === command.channel
+        );
+        if (idx === -1) return;
+
+        this.channels.splice(idx, 1);
+      }
+
+      if (command.command === IRCInfoCommands.connected) {
         console.log("[twitch.irc] Successfully connected to irc server");
         this.connected = true;
       }
 
+      if (command.command == IRCInfoCommands.auth_success) {
+        console.log("[twitch.irc] Authentication success");
+        if (!this.tags) {
+          this.connected = true;
+          this.joinAllChannel();
+        }
+      }
+
       if (command.command === "CAP" && command.acknowledged) {
-        this.tags = true;
         console.log("[twitch.irc] IRC tags successfully requested");
+        this.tags = true;
+        this.joinAllChannel();
       }
 
       this.dispatchEvent(command);
     });
+  }
+
+  private joinAllChannel() {
+    if (!this.connected) return;
+    if (this.channels.length === 0) return;
+
+    let toJoin = `#${this.channels
+      .filter((channel) => !channel.joined)
+      .join(",#")}`;
+    this.ws.send(`JOIN ${toJoin}`);
+    console.log(`[twitch.irc] Joining ${toJoin}`);
   }
 
   private dispatchEvent(command: CommandUnion) {
@@ -912,30 +970,6 @@ export class ChatClient {
           message: message.slice(1),
         } as Whisper;
         break;
-      // Informational Commands
-      case "001":
-        command = {
-          command: rawCommand,
-          info: "auth_success",
-        } as IrcInfo;
-        break;
-      case "376":
-        command = {
-          command: rawCommand,
-          info: "connected",
-        } as IrcInfo;
-        break;
-      case "002":
-      case "003":
-      case "004":
-      case "375":
-      case "372":
-        command = {
-          command: rawCommand,
-          info: "info",
-        } as IrcInfo;
-        break;
-
       case "CAP":
         if (rawParam === "* ACK :twitch.tv/tags") {
           command = { command: "CAP", acknowledged: true } as Cap;
@@ -943,6 +977,47 @@ export class ChatClient {
           command = { command: "CAP", acknowledged: false } as Cap;
         }
         break;
+      case "JOIN":
+        command = { command: "JOIN", channel: rawChannel } as Join;
+        break;
+      case "PART":
+        command = { command: "PART", channel: rawChannel } as Part;
+        break;
+
+      // Informational Commands
+      case IRCInfoCommands.auth_success:
+        command = {
+          command: IRCInfoCommands.auth_success,
+          info: "auth_success",
+        } as IrcInfo;
+        break;
+
+      case IRCInfoCommands.connected:
+        command = {
+          command: IRCInfoCommands.connected,
+          info: "connected",
+        } as IrcInfo;
+        break;
+
+      case IRCInfoCommands.joined_channel:
+        command = {
+          command: IRCInfoCommands.joined_channel,
+          info: "joined_channel",
+        } as IrcInfo;
+        break;
+
+      case "002":
+      case "003":
+      case "004":
+      case "375":
+      case "372":
+      case "366":
+        command = {
+          command: rawCommand,
+          info: "info",
+        } as IrcInfo;
+        break;
+
       default:
         command = { command: "UNKNOWN" } as UnknownCommand;
         break;
