@@ -13,6 +13,7 @@ import {
   UserState,
   Whisper,
   ChatClient,
+  Join,
 } from "../src/twitch/irc.js";
 
 describe("Testing Message Parser", () => {
@@ -199,6 +200,14 @@ describe("Testing Message Parser", () => {
     assert.equal(msg.fromUser, "foo");
     assert.equal(msg.source.userName, "petsgomoo");
     assert.equal(msg.message, "hello");
+  });
+
+  test("JOIN", () => {
+    const msg = ChatClient.parseMessage(
+      ":justinfan12345!justinfan12345@justinfan12345.tmi.twitch.tv JOIN #baguettech"
+    ) as Join;
+    assert.equal(msg.command, "JOIN");
+    assert.equal(msg.channel, "baguettech");
   });
 });
 
