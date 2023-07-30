@@ -421,11 +421,9 @@ export class ChatClient {
     this.clientPass = pass ?? "SCHMOOPIIE";
     this.tags = tags;
     this.server = new URL(server);
-
-    this.connect();
   }
 
-  private connect() {
+  public connect() {
     let _WebSocket: typeof WebSocket | typeof NodeWS;
     if (typeof window === "undefined") {
       _WebSocket = NodeWS;
@@ -456,7 +454,7 @@ export class ChatClient {
         return { channelLogin: name, joined: false };
       });
     }
-    this.channels.concat(toJoin);
+    this.channels = this.channels.concat(toJoin);
     if (this.connected) {
       this.joinAllChannel();
     }
@@ -469,8 +467,8 @@ export class ChatClient {
 
     let toPart = `#${channelLogin.join(",#")}`;
 
-    this.ws.send(`PART #${toPart}`);
-    console.log(`[twitch.irc] Parting #${toPart}`);
+    this.ws.send(`PART ${toPart}`);
+    console.log(`[twitch.irc] Parting ${toPart}`);
   }
 
   public close() {
@@ -576,6 +574,7 @@ export class ChatClient {
 
     let toJoin = `#${this.channels
       .filter((channel) => !channel.joined)
+      .map((ch) => ch.channelLogin)
       .join(",#")}`;
     this.ws.send(`JOIN ${toJoin}`);
     console.log(`[twitch.irc] Joining ${toJoin}`);

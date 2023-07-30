@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { describe, test } from "node:test";
-import { WebSocketServer } from "ws";
+import { describe, test, beforeEach, afterEach, before, after } from "mocha";
+import { WebSocketServer, WebSocket } from "ws";
 
 import {
   ClearChat,
@@ -211,33 +211,28 @@ describe("Testing Message Parser", () => {
   });
 });
 
-describe("Testing event emitter", () => {
+describe("Testing IRC Interface", () => {
+  let authMsgs = [
+    ["PASS SCHMOOPIIE", ""],
+    [
+      "NICK justinfan12345",
+      `:tmi.twitch.tv 001 justinfan12345 :Welcome, GLHF!
+      :tmi.twitch.tv 002 justinfan12345 :Your host is tmi.twitch.tv
+      :tmi.twitch.tv 003 justinfan12345 :This server is rather new
+      :tmi.twitch.tv 004 justinfan12345 :-
+      :tmi.twitch.tv 375 justinfan12345 :-
+      :tmi.twitch.tv 372 justinfan12345 :You are in a maze of twisty passages, all alike.
+      :tmi.twitch.tv 376 justinfan12345 :>`,
+    ],
+    ["CAP REQ :twitch.tv/tags", ":tmi.twitch.tv CAP * ACK :twitch.tv/tags"],
+  ];
+
   let cases: Array<{
     command: string;
     serverMessage?: string;
     clientMessage?: string;
     serverResponse?: string;
   }> = [
-    {
-      command: "PASS",
-      clientMessage: "PASS SCHMOOPIIE",
-    },
-    {
-      command: "NICK",
-      clientMessage: "NICK justinfan1234",
-      serverResponse: `:tmi.twitch.tv 001 justinfan12345 :Welcome, GLHF!
-:tmi.twitch.tv 002 justinfan12345 :Your host is tmi.twitch.tv
-:tmi.twitch.tv 003 justinfan12345 :This server is rather new
-:tmi.twitch.tv 004 justinfan12345 :-
-:tmi.twitch.tv 375 justinfan12345 :-
-:tmi.twitch.tv 372 justinfan12345 :You are in a maze of twisty passages, all alike.
-:tmi.twitch.tv 376 justinfan12345 :>`,
-    },
-    {
-      command: "CAP",
-      clientMessage: "CAP REQ :twitch.tv/tags",
-      serverResponse: ":tmi.twitch.tv CAP * ACK :twitch.tv/tags",
-    },
     {
       command: "PRIVMSG",
       serverMessage:
@@ -246,37 +241,113 @@ describe("Testing event emitter", () => {
     },
     // TODO part, join, userNotices
   ];
-
   cases = cases.reverse();
+  let ws: WebSocketServer;
+  let chatClient: ChatClient;
 
-  const ws = new WebSocketServer({ port: 1450 });
-
-  const chatClient = new ChatClient(
-    "justinfan1234",
-    "SCHMOOPIIE",
-    true,
-    "ws://localhost:1450"
-  );
-  chatClient.addListener((event) => {
-    if (event.command.command === "PRIVMSG") {
-      assert.deepEqual(event.command.params, "Kappa Keepo Kappa");
-      chatClient.close();
-      ws.close();
-    }
-  }, "*");
-  ws.on("connection", (socket) => {
-    socket.on("message", (data) => {
-      const message = data.toString("utf-8");
-      const testCase = cases.pop()!;
-      assert.deepEqual(message, testCase.clientMessage);
-      if (testCase.serverResponse) {
-        socket.send(testCase.serverResponse);
-      }
-
-      if (cases.length === 1) {
-        const sendMessage = cases.pop()!;
-        socket.send(sendMessage.serverMessage!);
-      }
+  beforeEach(function () {
+    ws = new WebSocketServer({ port: 1450 });
+    ws.on("connection", (socket) => {
+      socket = socket;
     });
+    chatClient = new ChatClient(
+      "justinfan12345",
+      "SCHMOOPIIE",
+      true,
+      "ws://localhost:1450"
+    );
+  });
+
+  test("Authentication", function (done) {
+    const expectedMsgs = [...authMsgs];
+
+    chatClient.connect();
+
+    ws.on("connection", (socket, req) => {
+      socket.onmessage = (event) => {
+        event;
+      };
+
+      socket.on("message", (data, isBin) => {
+        const test = expectedMsgs.splice(0, 1)[0];
+        const expected = test[0];
+        const res = test[1];
+        const message = data.toString("utf-8");
+
+        assert(!isBin);
+        assert.equal(message, expected);
+
+        if (res !== "") {
+          socket.send(res);
+        }
+
+        if (expectedMsgs.length === 0) {
+          chatClient.close();
+          socket.close();
+          done();
+        }
+      });
+    });
+  });
+
+  const getAuthHandler = () => {
+    let callCount = 0;
+    return (msg: string, socket: WebSocket) => {
+      if (callCount >= authMsgs.length - 1) return true;
+
+      const out = authMsgs[callCount][1];
+      if (out !== "") {
+        socket.send(out);
+      }
+
+      callCount++;
+    };
+  };
+
+  test("Joining Channel", function (done) {
+    const expectedMsgs = [...authMsgs];
+    const handleAuth = getAuthHandler();
+
+    chatClient.connect();
+
+    ws.on("connection", (socket, req) => {
+      socket.onmessage = (event) => {
+        event;
+      };
+
+      let join = true;
+      let part = true;
+
+      socket.on("message", (data, isBin) => {
+        const message = data.toString("utf-8");
+        const authCompleted = handleAuth(message, socket);
+
+        if (!authCompleted) return;
+
+        if (join) {
+          setTimeout(() => {
+            chatClient.join("twitch");
+            join = false;
+          }, 0);
+          return;
+        }
+        if (!join && part) {
+          assert.equal(message, "JOIN #twitch");
+          setTimeout(() => {
+            chatClient.part("twitch");
+            join = false;
+          }, 0);
+          part = false;
+          return;
+        }
+        assert.equal(message, "PART #twitch");
+        chatClient.close();
+        socket.close();
+        done();
+      });
+    });
+  });
+  afterEach(function () {
+    ws.close();
   });
 });
