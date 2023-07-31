@@ -300,7 +300,6 @@ describe("Testing IRC Interface", () => {
   };
 
   test("Joining / Leaving Channel", function (done) {
-    const expectedMsgs = [...authMsgs];
     const handleAuth = getAuthHandler();
 
     chatClient.connect();
@@ -328,6 +327,7 @@ describe("Testing IRC Interface", () => {
         }
         if (!join && part) {
           assert.equal(message, "JOIN #twitch");
+          socket.send(":bar!bar@bar.tmi.twitch.tv JOIN #twitch");
           setTimeout(() => {
             chatClient.part("twitch");
             join = false;
