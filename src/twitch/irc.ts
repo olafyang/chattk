@@ -437,6 +437,7 @@ export class ChatClient {
       this.ws.send(`NICK ${this.clientNick}`);
 
       if (this.tags) {
+        console.log("[twitch.irc] Requesting IRC tags");
         this.ws.send("CAP REQ :twitch.tv/tags");
       }
     };
@@ -525,7 +526,7 @@ export class ChatClient {
       }
 
       if (command.command === "JOIN") {
-        console.log(`[twitch.irc] Joined channel ${command.channel}`);
+        console.log(`[twitch.irc] Joined channel #${command.channel}`);
 
         let idx = this.channels.findIndex(
           (channel) => channel.channelLogin === command.channel
@@ -551,7 +552,6 @@ export class ChatClient {
 
       if (command.command === IRCInfoCommands.connected) {
         console.log("[twitch.irc] Successfully connected to irc server");
-        this.connected = true;
       }
 
       if (command.command == IRCInfoCommands.auth_success) {
@@ -565,6 +565,7 @@ export class ChatClient {
       if (command.command === "CAP" && command.acknowledged) {
         console.log("[twitch.irc] IRC tags successfully requested");
         this.tags = true;
+        this.connected = true;
         this.joinAllChannel();
       }
 
@@ -576,10 +577,12 @@ export class ChatClient {
     if (!this.connected) return;
     if (this.channels.length === 0) return;
 
-    let toJoin = `#${this.channels
+    const notJoined = this.channels
       .filter((channel) => !channel.joined)
-      .map((ch) => ch.channelLogin)
-      .join(",#")}`;
+      .map((ch) => ch.channelLogin);
+    if (notJoined.length === 0) return;
+
+    let toJoin = `#${notJoined.join(",#")}`;
     this.ws.send(`JOIN ${toJoin}`);
     console.log(`[twitch.irc] Joining ${toJoin}`);
   }
