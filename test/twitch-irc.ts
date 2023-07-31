@@ -285,10 +285,18 @@ describe("Testing IRC Interface", () => {
     });
   });
 
-  const getAuthHandler = () => {
+  const getAuthHandler: () => (
+    msg: string,
+    socket: WebSocket
+  ) => boolean = () => {
     let callCount = 0;
     return (msg: string, socket: WebSocket) => {
-      if (callCount >= authMsgs.length - 1) return true;
+      if (callCount === authMsgs.length - 1 && authMsgs[callCount][1] !== "") {
+        socket.send(authMsgs[callCount][1]);
+        callCount++;
+        return true;
+      }
+      if (callCount > authMsgs.length - 1) return true;
 
       const out = authMsgs[callCount][1];
       if (out !== "") {
@@ -296,6 +304,7 @@ describe("Testing IRC Interface", () => {
       }
 
       callCount++;
+      return false;
     };
   };
 
@@ -317,7 +326,6 @@ describe("Testing IRC Interface", () => {
         const authCompleted = handleAuth(message, socket);
 
         if (!authCompleted) return;
-
         if (join) {
           setTimeout(() => {
             chatClient.join("twitch");
@@ -328,10 +336,8 @@ describe("Testing IRC Interface", () => {
         if (!join && part) {
           assert.equal(message, "JOIN #twitch");
           socket.send(":bar!bar@bar.tmi.twitch.tv JOIN #twitch");
-          setTimeout(() => {
-            chatClient.part("twitch");
-            join = false;
-          }, 0);
+          chatClient.part("twitch");
+          join = false;
           part = false;
           return;
         }
@@ -342,6 +348,69 @@ describe("Testing IRC Interface", () => {
       });
     });
   });
+
+  test("Reconnect", function (done) {
+    let connectionCount = 0;
+    let handleAuth = getAuthHandler();
+    chatClient.connect();
+    ws.on("connection", (socket, req) => {
+      connectionCount++;
+      socket.on("message", (data) => {
+        const message = data.toString("utf-8");
+        const authCompleted = handleAuth(message, socket);
+        if (!authCompleted) return;
+        if (connectionCount === 1) {
+          socket.send(":tmi.twitch.tv RECONNECT");
+          handleAuth = getAuthHandler();
+        } else if (connectionCount > 1) {
+          assert.ok(true);
+          chatClient.close();
+          socket.close();
+          done();
+        }
+      });
+    });
+  });
+
+  test("Reconnect w/ channels joined", function (done) {
+    let connectionCount = 0;
+    let handleAuth = getAuthHandler();
+    let joined = false;
+
+    let allMsg: string[] = [];
+    chatClient.connect();
+    ws.on("connection", (socket, req) => {
+      connectionCount++;
+      socket.on("message", (data) => {
+        const message = data.toString("utf-8");
+        allMsg.push(message);
+        const authCompleted = handleAuth(message, socket);
+        if (!authCompleted) return;
+
+        if (message === "JOIN #twitchdev") {
+          joined = true;
+          socket.send(":bar!bar@bar.tmi.twitch.tv JOIN #twitchdev");
+
+          if (connectionCount > 1) {
+            chatClient.close();
+            socket.close();
+            done();
+          }
+        }
+
+        if (connectionCount === 1) {
+          if (!joined) {
+            chatClient.join("twitchdev");
+          } else {
+            socket.send(":tmi.twitch.tv RECONNECT");
+            handleAuth = getAuthHandler();
+            joined = false;
+          }
+        }
+      });
+    });
+  });
+
   afterEach(function () {
     ws.close();
   });
