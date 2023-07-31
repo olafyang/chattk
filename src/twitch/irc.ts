@@ -446,6 +446,7 @@ export class ChatClient {
   }
 
   public join(channelLogin: string | string[]) {
+    const savedChannels = this.channels.map((channel) => channel.channelLogin);
     let toJoin: typeof this.channels = [];
     if (typeof channelLogin === "string") {
       toJoin = [{ channelLogin: channelLogin, joined: false }];
@@ -454,7 +455,10 @@ export class ChatClient {
         return { channelLogin: name, joined: false };
       });
     }
-    this.channels = this.channels.concat(toJoin);
+    toJoin.forEach((ch) => {
+      if (savedChannels.includes(ch.channelLogin)) return;
+      this.channels.push(ch);
+    });
     if (this.connected) {
       this.joinAllChannel();
     }
