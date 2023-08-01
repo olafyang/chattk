@@ -484,11 +484,11 @@ export class ChatClient {
   }
 
   public addListener(
-    handler: (event: MessageEvent) => void,
+    command: CommandUnion["command"],
+    handler: (event: MessageEvent) => void
     // TODO needs work here
-    options: ListenerOptions = { commands: "PRIVMSG" }
   ): void {
-    this.listeners.set(handler, options);
+    this.listeners.set(handler, { commands: command });
   }
 
   public removeListener(handler: (event: MessageEvent) => void): boolean {
