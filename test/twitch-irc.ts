@@ -376,14 +376,11 @@ describe("Testing IRC Interface", () => {
     let connectionCount = 0;
     let handleAuth = getAuthHandler();
     let joined = false;
-
-    let allMsg: string[] = [];
     chatClient.connect();
     ws.on("connection", (socket, req) => {
       connectionCount++;
       socket.on("message", (data) => {
         const message = data.toString("utf-8");
-        allMsg.push(message);
         const authCompleted = handleAuth(message, socket);
         if (!authCompleted) return;
 
@@ -407,6 +404,84 @@ describe("Testing IRC Interface", () => {
             joined = false;
           }
         }
+      });
+    });
+  });
+
+  test("Receiving PRIVMSG", function (done) {
+    const handleAuth = getAuthHandler();
+    chatClient.connect();
+    ws.on("connection", (socket) => {
+      chatClient.addListener("PRIVMSG", (msg) => {
+        assert.deepEqual(msg.command, {
+          command: "PRIVMSG",
+          source: { source: "ronni.tmi.twitch.tv", userName: "ronni" },
+          tags: {
+            badgeInfo: undefined,
+            badges: [{ id: "1", name: "turbo" }],
+            color: "#0D4200",
+            displayName: "ronni",
+            emotes: [
+              {
+                id: "25",
+                name: "Kappa",
+                usage: [
+                  { startPos: 0, endPos: 5 },
+                  { startPos: 12, endPos: 17 },
+                ],
+                images: {
+                  "1x": new URL(
+                    "https://static-cdn.jtvnw.net/emoticons/v2/25/default/dark/1.0"
+                  ),
+                  "2x": new URL(
+                    "https://static-cdn.jtvnw.net/emoticons/v2/25/default/dark/2.0"
+                  ),
+                  "3x": new URL(
+                    "https://static-cdn.jtvnw.net/emoticons/v2/25/default/dark/3.0"
+                  ),
+                },
+              },
+              {
+                id: "1902",
+                name: "Keepo",
+                usage: [{ startPos: 6, endPos: 11 }],
+                images: {
+                  "1x": new URL(
+                    "https://static-cdn.jtvnw.net/emoticons/v2/1902/default/dark/1.0"
+                  ),
+                  "2x": new URL(
+                    "https://static-cdn.jtvnw.net/emoticons/v2/1902/default/dark/2.0"
+                  ),
+                  "3x": new URL(
+                    "https://static-cdn.jtvnw.net/emoticons/v2/1902/default/dark/3.0"
+                  ),
+                },
+              },
+            ],
+            firstMsg: false,
+            id: "b34ccfc7-4977-403a-8a94-33c6bac34fb8",
+            mod: false,
+            roomId: "1337",
+            subscriber: false,
+            tmiSentTs: new Date(1507246572675),
+            turbo: true,
+            userId: "1337",
+            userType: "global_mod",
+          },
+          channel: "ronni",
+          params: "Kappa Keepo Kappa",
+        });
+        socket.close();
+        chatClient.close();
+        done();
+      });
+      socket.on("message", (data) => {
+        const message = data.toString("utf-8");
+        const authCompleted = handleAuth(message, socket);
+        if (!authCompleted) return;
+        socket.send(
+          "@badge-info=;badges=turbo/1;color=#0D4200;display-name=ronni;emotes=25:0-4,12-16/1902:6-10;first-msg=0;id=b34ccfc7-4977-403a-8a94-33c6bac34fb8;mod=0;room-id=1337;subscriber=0;tmi-sent-ts=1507246572675;turbo=1;user-id=1337;user-type=global_mod :ronni!ronni@ronni.tmi.twitch.tv PRIVMSG #ronni :Kappa Keepo Kappa"
+        );
       });
     });
   });
