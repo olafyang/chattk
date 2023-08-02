@@ -2,7 +2,7 @@
   "name": "chattk",
   "version": "0.1.0",
   "description": "",
-  "main": "dist/",
+  "main": "dist/index.js",
   "type": "module",
   "types": "dist/index.d.ts",
   "files": [
@@ -10,7 +10,8 @@
   ],
   "scripts": {
     "test": "tsc -p tsconfig.test.json && mocha testdist/test",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "build": "tsc"
   },
   "lint-staged": {
     "*": "prettier --check ."
