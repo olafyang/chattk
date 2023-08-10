@@ -5,6 +5,19 @@ interface Badge {
   id: string;
 }
 
+enum PINNED_CHAT_LEVEL {
+  ONE = "ONE",
+  TWO = "TWO",
+  THREE = "THREE",
+  FOUR = "FOUR",
+  FIVE = "FIVE",
+  SIX = "SIX",
+  SEVEN = "SEVEN",
+  EIGHT = "EIGHT",
+  NINE = "NINE",
+  TEN = "TEN",
+}
+
 export interface Emote {
   id: string;
   name: string;
@@ -149,6 +162,13 @@ export interface PrivMsg {
     replyParentUserLogin?: string;
     replyParentDisplayName?: string;
     replyParentMsgBody?: String;
+    replyThreadParentMsgId?: string;
+    replyThreadParentUserLogin?: string;
+    pinnedChatPaidAmount?: number;
+    pinnedChatPaidCurrency?: string;
+    pinnedChatPaidExponent?: number; // Indicates how many decimal points this currency represents partial amounts in. Decimal points start from the right side of the value defined in pinned-chat-paid-amount.
+    pinnedChatPaidLevel?: PINNED_CHAT_LEVEL;
+    pinnedChatPaidIsSystemMessage?: boolean;
     roomId: string;
     subscriber: boolean;
     tmiSentTs: Date;
@@ -663,9 +683,10 @@ export class ChatClient {
       }
     }
 
+    // tags
     let tags: any = {};
     if (rawTags) {
-      rawTags.split(";").forEach(async (entry) => {
+      rawTags.split(";").forEach((entry) => {
         let tag = entry.split("=")[0];
         const val = entry.split("=")[1];
         // Convert tag name to camel case
@@ -682,8 +703,18 @@ export class ChatClient {
           }
         }
 
-        tags[tag] = ((tag, val): any => {
-          if (val === "") return undefined;
+        tags[tag] = ((
+          tag,
+          val
+        ):
+          | string
+          | number
+          | Array<Badge>
+          | boolean
+          | { subLength: number }
+          | Date
+          | null => {
+          if (val === "") return null;
           switch (tag) {
             case "badges":
               let badges: Array<Badge> = [];

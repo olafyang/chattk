@@ -38,7 +38,7 @@ describe("Testing Message Parser", () => {
 
     assert.equal(msg.command, "CLEARMSG");
     assert.equal(msg.tags.login, "foo");
-    assert.equal(msg.tags.roomId, undefined);
+    assert.equal(msg.tags.roomId, null);
     assert.equal(msg.tags.targetMsgId, "94e6c7ff-bf98-4faa-af5d-7ad633a158a9");
     assert.deepEqual(msg.tags.tmiSentTs, new Date(1642720582342));
     assert.equal(msg.source.source, "tmi.twitch.tv");
@@ -88,7 +88,7 @@ describe("Testing Message Parser", () => {
     ) as PrivMsg;
 
     assert.equal(msg.command, "PRIVMSG");
-    assert.equal(msg.tags.badgeInfo, undefined);
+    assert.equal(msg.tags.badgeInfo, null);
     assert.deepEqual(msg.tags.badges, [{ id: "1", name: "turbo" }]);
     assert.equal(msg.tags.bits, undefined);
     assert.equal(msg.tags.color, "#0D4200");
@@ -417,7 +417,7 @@ describe("Testing IRC Interface", () => {
           command: "PRIVMSG",
           source: { source: "ronni.tmi.twitch.tv", userName: "ronni" },
           tags: {
-            badgeInfo: undefined,
+            badgeInfo: null,
             badges: [{ id: "1", name: "turbo" }],
             color: "#0D4200",
             displayName: "ronni",
